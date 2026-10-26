@@ -467,7 +467,7 @@ function joins(){const r=[],ps=[];D.walls.forEach(w=>{if(w.kind=='part'){const[A
  for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){const[p,w1]=ps[i],[q,w2]=ps[j];if(w1!==w2&&Math.abs(p.x-q.x)<1&&Math.abs(p.y-q.y)<1&&wa(w1)!=wa(w2))r.push({x:p.x,y:p.y,t:Math.max(w1.t,w2.t)})}return r}
 /* 壁の端を動かす: その端に接している別向きの間仕切り(L字・T字の取り合い)も一緒に平行移動して付いてくる */
 function moveEnd(w,isB,sh){const P=D.pts[isB?w.b:w.a],k=wa(w)==0?'x':'y',ft=[];
- D.walls.forEach(v=>{if(v===w||v.kind!='part'||wa(v)==wa(w))return;if([v.a,v.b].some(pi=>Math.hypot(D.pts[pi].x-P.x,D.pts[pi].y-P.y)<1.5))ft.push(v)});
+ D.walls.forEach(v=>{if(v===w||v.kind!='part'||wa(v)==wa(w))return;if(sg(P,...wp(v))[0]<1.5)ft.push(v)});/* 端点が一致する壁だけでなく、端が壁の途中(T字)に当たっている相手も対象 */
  const sn=opsSnap({W:ft.map(x=>({w:x}))}),idx=new Set([isB?w.b:w.a]);ft.forEach(v=>{idx.add(v.a);idx.add(v.b)});idx.forEach(i=>{D.pts[i][k]+=sh});opsFix(sn)}
 /* 間仕切りの端が別の間仕切りに接していた場合、相手が動いたら端を相手の面まで伸縮して吸着し直す */
 function linkSnap(skip){const L=[];D.walls.forEach(w=>{if(w.kind!='part'||(skip&&skip(w)))return;[w.a,w.b].forEach((pi,ei)=>{if(w.at&&w.at[ei])return;const P=D.pts[pi],q=D.walls.find(o=>o!==w&&o.kind=='part'&&wa(o)!=wa(w)&&sg(P,...wp(o))[0]<1.5);if(q)L.push({w,pi,q})})});return L}
