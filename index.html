@@ -465,8 +465,15 @@ function squareUp(){D.walls.forEach(w=>{if(w.kind!='part')return;const k=wa(w)==
 const fx=(v,k)=>{const e=D.pts.find(p=>Math.abs(p[k]-v)<.01);return e?e[k]:Math.round(v/50)*50},addPx=(x,y)=>(D.pts.push({x:fx(x,'x'),y:fx(y,'y')}),D.pts.length-1);
 function joins(){const r=[],ps=[];D.walls.forEach(w=>{if(w.kind=='part'){const[A,B]=wp(w);ps.push([A,w],[B,w])}});
  for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){const[p,w1]=ps[i],[q,w2]=ps[j];if(w1!==w2&&Math.abs(p.x-q.x)<1&&Math.abs(p.y-q.y)<1&&wa(w1)!=wa(w2))r.push({x:p.x,y:p.y,t:Math.max(w1.t,w2.t)})}return r}
+/* 壁の端を動かす: その端に接している別向きの間仕切り(L字・T字の取り合い)も一緒に平行移動して付いてくる */
+function moveEnd(w,isB,sh){const P=D.pts[isB?w.b:w.a],k=wa(w)==0?'x':'y',ft=[];
+ D.walls.forEach(v=>{if(v===w||v.kind!='part'||wa(v)==wa(w))return;if([v.a,v.b].some(pi=>Math.hypot(D.pts[pi].x-P.x,D.pts[pi].y-P.y)<1.5))ft.push(v)});
+ const sn=opsSnap({W:ft.map(x=>({w:x}))}),idx=new Set([isB?w.b:w.a]);ft.forEach(v=>{idx.add(v.a);idx.add(v.b)});idx.forEach(i=>{D.pts[i][k]+=sh});opsFix(sn)}
+/* 間仕切りの端が別の間仕切りに接していた場合、相手が動いたら端を相手の面まで伸縮して吸着し直す */
+function linkSnap(skip){const L=[];D.walls.forEach(w=>{if(w.kind!='part'||(skip&&skip(w)))return;[w.a,w.b].forEach((pi,ei)=>{if(w.at&&w.at[ei])return;const P=D.pts[pi],q=D.walls.find(o=>o!==w&&o.kind=='part'&&wa(o)!=wa(w)&&sg(P,...wp(o))[0]<1.5);if(q)L.push({w,pi,q})})});return L}
+function linkFix(L){L.forEach(({w,pi,q})=>{if(!D.walls.includes(w)||!D.walls.includes(q))return;const k=wa(w)==0?'x':'y';D.pts[pi][k]=D.pts[q.a][k]})}
 function setLen(w,L){const[A,B]=wp(w),d=L-wl(w);if(!d)return;const k=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y)?'x':'y',s=Math.sign(B[k]-A[k])||1;
- if(w.kind=='part'){B[k]+=s*d;if(w.at)w.at[1]=null;return}
+ if(w.kind=='part'){moveEnd(w,1,s*d);if(w.at)w.at[1]=null;return}
  const cut=B[k];D.pts.forEach(p=>{if((p[k]-cut)*s>=-.5)p[k]+=s*d})}
 function near(p,thr){let b=null;D.walls.forEach(w=>{const[A,B]=wp(w),[d,t]=sg(p,A,B);if(d<thr&&(!b||d<b.d))b={w,d,t,L:wl(w)}});return b}
 function og(o){const w=wid(o.w);if(!w)return null;const[A,B]=wp(w),L=wl(w),u={x:(B.x-A.x)/L,y:(B.y-A.y)/L};
@@ -591,6 +598,18 @@ const LZ={dev:null,name:'',st:'未接続',last:null,raw:'',tgt:null,sd:1,armed:f
 const LZ_SV=['3ab10100-f831-4395-b29d-570977d5bf94','00005301-0000-0041-4c50-574953450000','0000ffe0-0000-1000-8000-00805f9b34fb','0000fff0-0000-1000-8000-00805f9b34fb','6e400001-b5a3-f393-b8ec-bf2a7cf6a1a0'];
 const dirJ=v=>Math.abs(v.x)>Math.abs(v.y)?(v.x>0?'右':'左'):(v.y>0?'下':'上');
 const wN=w=>{const[A,B]=wp(w),L=wl(w)||1;return{A,B,L,u:{x:(B.x-A.x)/L,y:(B.y-A.y)/L},n:{x:-(B.y-A.y)/L,y:(B.x-A.x)/L}}};
+/* 外壁を「間仕切りと交わる部分ごと」の区間に分割(室内側仕上げ面で、角〜間仕切り側面〜間仕切り側面〜角) */
+function segInfo(o){if(!o||o.kind!='outer')return null;prepOut();const ax=wa(o),lk=ax==0?'x':'y',k=ax==0?'y':'x',c=D.pts[o.a][k],d2=OD(o)[2];
+ const ca=oc(o,o.a,2),cb=oc(o,o.b,2),A=Math.min(ca[lk],cb[lk]),B=Math.max(ca[lk],cb[lk]),face=ca[k],bl=[];
+ D.walls.forEach(p=>{if(p.kind!='part'||wa(p)==ax)return;[p.a,p.b].forEach(pi=>{const P=D.pts[pi];if(Math.abs(P[k]-c)<=d2+12&&P[lk]>A+1&&P[lk]<B-1)bl.push({lo:P[lk]-p.t/2,hi:P[lk]+p.t/2,c:P[lk]})})});
+ bl.sort((a,b)=>a.lo-b.lo);const m=[];bl.forEach(b=>{const l=m.at(-1);if(l&&b.lo<=l.hi+1){l.hi=Math.max(l.hi,b.hi);l.c=Math.min(l.c,b.c)}else m.push({...b})});
+ const segs=[];let prev=A;m.forEach(b=>{if(b.lo-prev>=1)segs.push({lo:prev,hi:b.lo,c:b.c});prev=b.hi});if(B-prev>=1)segs.push({lo:prev,hi:B,c:null});
+ return{lk,k,face,A,B,m,segs}}
+function lzCur(w,sd){if(w.kind=='part')return Math.round(faceSpan(w,sd));if(w.kind=='outer'&&LZ.seg!=null){const I=segInfo(w),g=I&&I.segs[LZ.seg];if(g)return Math.round(g.hi-g.lo)}return Math.round(wl(w))}
+/* 区間の寸法を実測値に合わせる: 区間の大きい側(右/下)にある間仕切り・外壁角を動かし、それより先の部分は形を保ったまま平行移動 */
+function segApply(o,i,val){const I=segInfo(o),g=I&&I.segs[i];if(!g)return false;const d=val-(g.hi-g.lo);if(Math.abs(d)<.5)return true;
+ const cut=g.c!=null?g.c:Math.max(D.pts[o.a][I.lk],D.pts[o.b][I.lk]),snap=opsSnap({W:D.walls.map(w=>({w}))});
+ D.pts.forEach(p=>{if(p[I.lk]>=cut-.5)p[I.lk]+=d});opsFix(snap);return true}
 function lzLabel(w,sd){if(w.kind!='part')return'外周壁';const g=wN(w);return'間仕切り '+dirJ({x:g.n.x*sd,y:g.n.y*sd})+'側の面'}
 /* 間仕切りの片面の長さ(納まり処理後の実際に描かれている面の端〜端) */
 function faceSpan(w,sd,segs){const g=wN(w);
@@ -601,24 +620,26 @@ function faceSpan(w,sd,segs){const g=wN(w);
   if(hi>lo)return hi-lo}
  const q=pbq(w,0,0);return Math.hypot(q[1].x-q[0].x,q[1].y-q[0].y)}
 function lzResize(w,d,endA){const[A,B]=wp(w),k=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y)?'x':'y',s=Math.sign(B[k]-A[k])||1;
- if(endA){A[k]-=s*d;if(w.at)w.at[0]=null;D.ops.forEach(o=>{if(o.w==w.id)o.off=Math.max(0,o.off+d)})}
- else{B[k]+=s*d;if(w.at)w.at[1]=null}}
+ if(endA){moveEnd(w,0,-s*d);if(w.at)w.at[0]=null;D.ops.forEach(o=>{if(o.w==w.id)o.off=Math.max(0,o.off+d)})}
+ else{moveEnd(w,1,s*d);if(w.at)w.at[1]=null}}
 /* 測定値(または入力値)を壁・面に反映 */
 function lzApply(w,sd,val){val=Math.round(val);if(!(val>=50)){LZ.msg='値が不正です';return false}
- const lab=lzLabel(w,sd);save();
- if(w.kind=='outer'){if(val!=Math.round(wl(w)))setLen(w,val);w.fix=1;LZ.msg=lab+' '+val+' mm を反映しました';commit()}
+ const lab=lzLabel(w,sd);save();const LK=linkSnap(x=>x===w);
+ if(w.kind=='outer'&&LZ.seg!=null){if(!segApply(w,LZ.seg,val)){LZ.msg='区間を特定できませんでした';return false}LZ.msg=lab+' 区間'+(LZ.seg+1)+' '+val+' mm を反映しました(これより先の部分は平行移動)';linkFix(LK);commit()}
+ else if(w.kind=='outer'){if(val!=Math.round(wl(w)))setLen(w,val);w.fix=1;LZ.msg=lab+' '+val+' mm を反映しました';linkFix(LK);commit()}
  else{w.ms=w.ms||{};w.ms[sd>0?'p':'m']=val;w.fix=1;let rec=false,note='';
   if(Math.abs(val-faceSpan(w,sd))>=.5){const aA=!!(w.at&&w.at[0]),aB=!!(w.at&&w.at[1]);
    if(aA&&aB&&!confirm('この間仕切りは両端が外周壁に取り付いています。\n長さを変えると取付が外れます。図面を実測値に合わせますか?\n(キャンセル=実測値の記録のみ・図面は変更しません)'))rec=true;
    if(!rec){const endA=aB&&!aA;for(let i=0;i<4;i++){const d=val-faceSpan(w,sd);if(Math.abs(d)<.5)break;if(wl(w)+d<100){note=' (短すぎるため一部のみ反映)';break}lzResize(w,d,endA);try{alignPart()}catch(e){}}}}
   const o=w.ms[sd>0?'m':'p'];if(o&&Math.abs(faceSpan(w,-sd)-o)>2)note+=' ※反対面の実測 '+o+' と図面 '+Math.round(faceSpan(w,-sd))+' が一致しません';
-  LZ.msg=lab+' '+val+' mm を'+(rec?'記録しました(図面は未変更)':'反映しました')+note;commit()}
+  LZ.msg=lab+' '+val+' mm を'+(rec?'記録しました(図面は未変更)':'反映しました')+note;linkFix(LK);commit()}
  LZ.armed=false;LZ.done={v:val};return true}
 function laserPick(p){const n=near(p,30/V.s);if(!n){LZ.tgt=null;LZ.msg='';ui();return}
  const w=n.w;let sd=1;if(w.kind=='part'){const g=wN(w);sd=((p.x-g.A.x)*g.n.x+(p.y-g.A.y)*g.n.y)>=0?1:-1}
+ LZ.seg=null;if(w.kind=='outer'){const I=segInfo(w);if(I&&I.m.length&&I.segs.length){const q=p[I.lk];let bi=0,bd=1e18;I.segs.forEach((g,i)=>{const d=q<g.lo?g.lo-q:q>g.hi?q-g.hi:0;if(d<bd){bd=d;bi=i}});LZ.seg=bi}}
  LZ.tgt=w;LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui()}
 async function lzManual(){const w=LZ.tgt;if(!w||!D.walls.includes(w)){alert('先に壁をタップして選択してください');return}
- const pt=w.kind=='part',fs=[],labs=pt?[lzLabel(w,1),lzLabel(w,-1)]:null,v0=s=>Math.round(pt?faceSpan(w,s):wl(w));
+ const pt=w.kind=='part',fs=[],labs=pt?[lzLabel(w,1),lzLabel(w,-1)]:null,v0=s=>lzCur(w,s);
  if(pt)fs.push({l:'測定面',v:labs[LZ.sd>0?0:1],sel:labs});fs.push({l:'寸法(mm)',v:v0(LZ.sd)});
  const f=await ask('直接入力 ─ '+(pt?'間仕切り':'外周壁'),fs,0,pt?(e,i)=>{if(i==0)e[1].value=v0(e[0].value==labs[0]?1:-1)}:null);if(!f)return;
  const sd=pt&&f[0]==labs[1]?-1:1,val=+f[pt?1:0];if(!(val>0))return;if(pt)LZ.sd=sd;lzApply(w,sd,val);ui();render()}
@@ -700,7 +721,7 @@ function draw(c,V,k,ui,pdf){
   if(ui&&sel&&sel.dg){c.save();c.strokeStyle='#f59e0b';c.lineWidth=5;c.globalAlpha=.6;c.lineCap='round';sel.dg.set.forEach(x=>{if(!D.dims.includes(x))return;const g=dimG(x);if(!g)return;const a=S(g.a),b=S(g.b);c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke()});c.restore();drawBtns(c,dimBtns(sel.dg))}
  (RC?[]:D.areas).forEach(a=>{const[x,y]=S({x:a.lx??a.x,y:a.ly??a.y});const t=a.r&&!a.r.err?[`床${a.r.floor.toFixed(2)}㎡ 天井${a.r.ceil.toFixed(2)}㎡`,`壁${a.r.wall.toFixed(2)}㎡ (H${a.h})`]:[a.r?a.r.err:''];
   c.font=`${11*k}px sans-serif`;const wd=Math.max(...t.map(s=>c.measureText(s).width))+8*k;c.fillStyle='#ffffffd9';c.fillRect(x-wd/2,y-8*k*t.length,wd,16*k*t.length);c.fillStyle='#111';t.forEach((s,i)=>c.fillText(s,x,y+(i-(t.length-1)/2)*14*k))});
- if(ui&&tool=='laser'&&LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;let a,b;if(w.kind=='part'){const q=pb(w,LZ.sd*w.t/2,LZ.sd*w.t/2);a=q[0];b=q[1]}else{[a,b]=wp(w)}
+ if(ui&&tool=='laser'&&LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;let a,b;if(w.kind=='part'){const q=pb(w,LZ.sd*w.t/2,LZ.sd*w.t/2);a=q[0];b=q[1]}else{[a,b]=wp(w);if(w.kind=='outer'&&LZ.seg!=null){const I=segInfo(w),g=I&&I.segs[LZ.seg];if(g){a=I.lk=='x'?{x:g.lo,y:I.face}:{x:I.face,y:g.lo};b=I.lk=='x'?{x:g.hi,y:I.face}:{x:I.face,y:g.hi}}}}
  const A_=S(a),B_=S(b),t=LZ.armed?'測定待ち…':(LZ.done?'測定 '+LZ.done.v+' mm':'');c.save();c.lineCap='round';c.globalAlpha=.85;c.strokeStyle=LZ.armed?'#f59e0b':'#16a34a';c.lineWidth=6;c.beginPath();c.moveTo(...A_);c.lineTo(...B_);c.stroke();c.globalAlpha=1;
  if(t){c.font='bold 13px sans-serif';c.textAlign='center';c.textBaseline='middle';const mx=(A_[0]+B_[0])/2,my=(A_[1]+B_[1])/2-18,tw_=c.measureText(t).width+12;c.fillStyle=LZ.armed?'#f59e0b':'#16a34a';c.fillRect(mx-tw_/2,my-10,tw_,20);c.fillStyle='#fff';c.fillText(t,mx,my)}c.restore()}
  if(ui&&mode=='plan'&&(ostk.length||pstk.length||(hwTool()&&otl=='erase'&&ocur))){c.save();c.lineJoin='round';c.lineCap='round';c.setLineDash([]);c.lineWidth=2.5;[[ostk,'#2563eb'],[pstk,'#dc2626']].forEach(([L_,col])=>{c.strokeStyle=col;L_.forEach(q=>{c.beginPath();q.forEach((p,i)=>i?c.lineTo(...S(p)):c.moveTo(...S(p)));c.stroke()})});if(hwTool()&&otl=='erase'&&ocur){const[ex,ey]=S(ocur);c.beginPath();c.arc(ex,ey,ER,0,7);c.fillStyle='rgba(220,38,38,.10)';c.fill();c.strokeStyle='#dc2626';c.lineWidth=1.5;c.stroke()}c.restore()}
@@ -733,7 +754,7 @@ async function wallM(w){const L=Math.round(wl(w)),pt=w.kind=='part',PSL=['LGS45'
   else fs.push({l:'下地',v:w.os||'既定に従う',sel:OSL},{l:'GL: ボード内面〜躯体(mm)',v:w.gl||D.cfg.gl,sel:['20','25','30','35']},{l:'適用',v:'この壁のみ',sel:['この壁のみ','外周すべて']},{l:'寸法線',v:'そのまま',sel:['そのまま','挿入']});
   const f=await ask(pt?'間仕切り壁':'外周壁',fs,1,pt?(e,i)=>{if((i==1||i==2)&&e[1].value!='その他')e[3].value=thk(e[1].value,+e[2].value)}:null);if(!f)return;save();
   if(f=='del'){D.walls=D.walls.filter(x=>x!=w);D.ops=D.ops.filter(o=>o.w!=w.id);D.dims=D.dims.filter(o=>o.w!=w.id)}
-  else{const n=+f[0];if(n>0){if(Math.round(n)!=L)setLen(w,n);w.fix=1}
+  else{const n=+f[0];if(n>0){const LK=linkSnap(x=>x===w);if(Math.round(n)!=L)setLen(w,n);linkFix(LK);w.fix=1}
    if(pt)D.walls.filter(x=>f[4]=='この壁のみ'?x==w:x.kind=='part').forEach(x=>{const o=f[1]=='その他';x.sub=f[1];x.bd=o?0:+f[2];x.t=o?(+f[3]||100):thk(f[1],+f[2])});
    else D.walls.filter(x=>f[3]=='この壁のみ'?x==w:x.kind=='outer').forEach(x=>{if(f[1]=='既定に従う')delete x.os;else x.os=f[1];if(f[1]=='GL')x.gl=+f[2]})}
     if(f!='del'&&f[pt?5:4]=='挿入')addWallDim(w);commit()}
@@ -1052,8 +1073,8 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
   else if(tool=='laser'){const cn=!!(LZ.dev&&LZ.dev.gatt&&LZ.dev.gatt.connected);
   sbBtn(s,cn?'📡 切断':'📡 距離計に接続',cn?laserDisc:laserConnect,cn?'':'ok');h(LZ.st+(cn?'('+LZ.name+')':''));if(cn&&LZ.ch){sbBtn(s,'▶ 測定要求を送る',async()=>{await lzSync([0xC0,0x40,0x00,0xEE]);LZ.st='測定要求送信'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});}if(cn&&LZ.ch)sbBtn(s,'⟳ 同期コマンド再送',async()=>{await lzSync();LZ.st='同期コマンド再送'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});
   if(LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;
-   if(w.kind=='part')[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()},LZ.sd==sd?'on':''));else h('外周壁');
-   h('図面寸法 '+Math.round(w.kind=='part'?faceSpan(w,LZ.sd):wl(w))+' mm');
+   if(w.kind=='part')[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()},LZ.sd==sd?'on':''));else{const I=segInfo(w);if(I&&I.m.length){const go=i=>()=>{LZ.seg=i;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()};sbBtn(s,'外壁全長',go(null),LZ.seg==null?'on':'');I.segs.forEach((g,i)=>sbBtn(s,'区間'+(i+1)+' '+Math.round(g.hi-g.lo),go(i),LZ.seg===i?'on':''))}else h('外周壁')}
+   h('図面寸法 '+lzCur(w,LZ.sd)+' mm');
    const ms=w.ms&&w.ms[LZ.sd>0?'p':'m'];if(ms)h('実測 '+ms+' mm');
    sbBtn(s,'↻ 再測定',()=>{LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()});sbBtn(s,'✎ 直接入力',lzManual);
    h(LZ.armed?'▶ 距離計で測定してください(測定待ち)':'✔ 反映済み ─ 再測定は壁をもう一度タップ/「再測定」')}
