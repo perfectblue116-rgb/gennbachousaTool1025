@@ -638,11 +638,12 @@ async function laserConnect(){
  try{LZ.st='デバイスを選択してください…';ui();
   const dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:LZ_SV});
   LZ.dev=dev;LZ.name=dev.name||'距離計';LZ.cnt=0;LZ.raw='';LZ.last=null;dev.addEventListener('gattserverdisconnected',()=>{LZ.st='切断されました';ui()});
-  LZ.st='接続中…';ui();const srv=await dev.gatt.connect(),svs=await srv.getPrimaryServices();let nn=0,wr=null;
+  LZ.st='接続中…';ui();const srv=await dev.gatt.connect(),svs=await srv.getPrimaryServices();let nn=0,wr=null;const W=[];LZ.chars=[];
   for(const sv of svs){let cs=[];try{cs=await sv.getCharacteristics()}catch(e){}
    for(const c of cs){const pr=c.properties;
     if(pr.notify||pr.indicate){try{await c.startNotifications();c.addEventListener('characteristicvaluechanged',ev=>lzRecv(ev.target.value,c.uuid));nn++}catch(e){}}
-    if(c.uuid.startsWith('00005302')&&(pr.write||pr.writeWithoutResponse))wr=c}}
+    LZ.chars.push(sv.uuid.slice(0,8)+'/'+c.uuid.slice(0,8)+':'+(pr.read?'R':'')+(pr.write?'W':'')+(pr.writeWithoutResponse?'w':'')+(pr.notify?'N':'')+(pr.indicate?'I':''));if(pr.write||pr.writeWithoutResponse)W.push(c)}}
+  wr=W.find(c=>c.uuid.startsWith('00005302'))||W.find(c=>/^(00005301|3ab10100)/.test(c.service.uuid))||W.find(c=>!/-0000-1000-8000-00805f9b34fb$/.test(c.service.uuid))||null;
   LZ.ch=wr;if(wr)await lzSync();
   LZ.st=nn?('接続済み(通知'+nn+'件'+(wr?'・同期コマンド送信'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:'')):'・書込み特性なし')+')。距離計の測定ボタンを押してください'):'接続しましたが測定値を受信できる特性が見つかりません(非対応機種の可能性)'}
  catch(e){LZ.st=(e&&e.name=='NotFoundError')?'キャンセルしました':'接続できませんでした: '+((e&&e.message)||e)}
@@ -1057,7 +1058,7 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
    sbBtn(s,'↻ 再測定',()=>{LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()});sbBtn(s,'✎ 直接入力',lzManual);
    h(LZ.armed?'▶ 距離計で測定してください(測定待ち)':'✔ 反映済み ─ 再測定は壁をもう一度タップ/「再測定」')}
   else h('測定したい壁をタップ(間仕切りは測りたい面の側をタップ)');
-  if(LZ.msg)h(LZ.msg);if(LZ.last)h('最新受信 '+LZ.last.v+' mm');h('受信'+(LZ.cnt||0)+'件'+(LZ.raw?' 最新データ: '+LZ.raw:' (まだ何も届いていません)'));if(LZ.log&&LZ.log.length>1)h('履歴: '+LZ.log.join(' | '))}
+  if(LZ.msg)h(LZ.msg);if(LZ.last)h('最新受信 '+LZ.last.v+' mm');h('受信'+(LZ.cnt||0)+'件'+(LZ.raw?' 最新データ: '+LZ.raw:' (まだ何も届いていません)'));if(LZ.chars&&LZ.chars.length)h('特性: '+LZ.chars.join(' '));if(LZ.log&&LZ.log.length>1)h('履歴: '+LZ.log.join(' | '))}
   else if(tool=='sel'){h(mode=='rcp'?'設備・図形をタップで選択 → ドラッグで移動、○で拡大縮小、緑○で回転、赤×で削除':HINT.sel)}
  else h(HINT[tool])}
 
