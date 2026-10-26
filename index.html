@@ -329,7 +329,10 @@ function wallBtns(w){const[A,B]=wp(w),mx=(A.x+B.x)/2*V.s+V.ox,my=(A.y+B.y)/2*V.s
  let x=Math.max(tot/2+4,Math.min(cw-tot/2-4,mx))-tot/2;const y=Math.max(22,Math.min(ch-22,my-56));return L.map(b=>{const r={...b,h:30,x:x+b.w/2,y};x+=b.w+6;return r})}
 function wallAct(id,w){if(id=='edit'){wallM(w);return}if(id=='del'){save();D.walls=D.walls.filter(x=>x!=w);D.ops=D.ops.filter(o=>o.w!=w.id);D.dims=D.dims.filter(o=>o.w!=w.id);sel=null;commit()}}
 function drawBtns(c,L){L.forEach(bt=>{const x=bt.x-bt.w/2,y=bt.y-bt.h/2,r=8;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+bt.w,y,x+bt.w,y+bt.h,r);c.arcTo(x+bt.w,y+bt.h,x,y+bt.h,r);c.arcTo(x,y+bt.h,x,y,r);c.arcTo(x,y,x+bt.w,y,r);c.closePath();c.fillStyle=bt.id=='del'?'#dc2626':'#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=2;c.stroke();c.fillStyle='#fff';c.font='bold 12px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(bt.t,bt.x,bt.y)})}
-function wallOverlay(c,w){const ch=partChain(w),P=p=>[p.x*V.s+V.ox,p.y*V.s+V.oy];c.save();c.setLineDash([5,4]);c.strokeStyle='#2563eb';c.lineWidth=1.5;
+function wallOverlay(c,w){if(w.kind=='outer'){const P=p=>[p.x*V.s+V.ox,p.y*V.s+V.oy];c.save();c.setLineDash([5,4]);c.strokeStyle='#2563eb';c.lineWidth=1.5;const[A,B]=wp(w);c.beginPath();c.moveTo(...P(A));c.lineTo(...P(B));c.stroke();c.setLineDash([]);
+ [0,1].forEach(i=>{const[x,y]=P(i?B:A),on=drag&&drag.t=='owend'&&drag.isB==i;c.beginPath();c.arc(x,y,on?12:10,0,7);c.fillStyle=on&&drag.snap?'#f59e0b':'#fff';c.fill();c.strokeStyle='#2563eb';c.lineWidth=2.5;c.stroke()});
+ drawBtns(c,wallBtns(w));c.restore();return}
+ const ch=partChain(w),P=p=>[p.x*V.s+V.ox,p.y*V.s+V.oy];c.save();c.setLineDash([5,4]);c.strokeStyle='#2563eb';c.lineWidth=1.5;
  ch.W.forEach(s=>{const q=pbq(s.w,-s.w.t/2,s.w.t/2);c.beginPath();q.forEach((pt,i)=>{const[x,y]=P(pt);i?c.lineTo(x,y):c.moveTo(x,y)});c.closePath();c.stroke()});c.setLineDash([]);
  [ch.V[0],ch.V.at(-1)].forEach((pt,i)=>{const[x,y]=P(pt),on=drag&&drag.t=='wend'&&drag.ti==(i?ch.W.length:0);c.beginPath();c.arc(x,y,on?12:10,0,7);c.fillStyle=on&&drag.snap?'#f59e0b':'#fff';c.fill();c.strokeStyle='#2563eb';c.lineWidth=2.5;c.stroke()});
  drawBtns(c,wallBtns(w));c.restore()}
@@ -619,6 +622,11 @@ function faceSpan(w,sd,segs){const g=wN(w);
   const ra=da.x*g.u.x+da.y*g.u.y,rb=db.x*g.u.x+db.y*g.u.y;lo=Math.min(lo,ra,rb);hi=Math.max(hi,ra,rb)});
   if(hi>lo)return hi-lo}
  const q=pbq(w,0,0);return Math.hypot(q[1].x-q[0].x,q[1].y-q[0].y)}
+function owMove(d,p){const w=d.o;if(!D.walls.includes(w))return;const[A,B]=wp(w),k=wa(w)==0?'x':'y',s=Math.sign(B[k]-A[k])||1,P=d.isB?B:A,th=14/V.s;
+ let tv=p[k],best=null;D.pts.forEach(Q=>{if(Q===A||Q===B)return;const dd=Math.abs(Q[k]-tv);if(dd<th&&(!best||dd<best.d))best={d:dd,v:Q[k]}});
+ tv=best?best.v:Math.round(tv/10)*10;d.snap=best?1:0;const sh=tv-P[k];if(Math.abs(sh)<.5){render();return}
+ const nl=Math.abs(B[k]-A[k])+(d.isB?s*sh:-s*sh);if(nl<100){render();return}
+ const LK=linkSnap(x=>x===w);moveEnd(w,d.isB,sh);if(w.at)w.at[d.isB]=null;if(!d.isB)D.ops.forEach(o=>{if(o.w==w.id)o.off=Math.max(0,o.off-s*sh)});linkFix(LK);render()}
 function lzResize(w,d,endA){const[A,B]=wp(w),k=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y)?'x':'y',s=Math.sign(B[k]-A[k])||1;
  if(endA){moveEnd(w,0,-s*d);if(w.at)w.at[0]=null;D.ops.forEach(o=>{if(o.w==w.id)o.off=Math.max(0,o.off+d)})}
  else{moveEnd(w,1,s*d);if(w.at)w.at[1]=null}}
@@ -959,19 +967,21 @@ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const p=W(e),th=(e.pointe
   if(sel&&sel.op&&D.ops.includes(sel.op)){const bt=opBtns(sel.op).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);if(bt){dn=null;drag=null;opAct(bt.id,sel.op);return}}
    if(mode=='plan'&&sel&&sel.wl&&D.walls.includes(sel.wl)){const wl_=sel.wl,bt=wallBtns(wl_).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);
     if(bt){dn=null;drag=null;wallAct(bt.id,wl_);return}
-    const ch_=partChain(wl_),hr=(e.pointerType=='touch'?34:16)/V.s,Tm=[ch_.V[0],ch_.V.at(-1)],ti=Tm.findIndex(P=>Math.hypot(P.x-p.x,P.y-p.y)<hr);
-    if(ti>=0){drag={t:'wend',ch:{W:ch_.W,V0:ch_.V},ti:ti?ch_.W.length:0,ax:null,snap:0,ops:opsSnap(ch_)};render();return}}
+    if(wl_.kind=='outer'){const hr0=(e.pointerType=='touch'?34:16)/V.s,pa=D.pts[wl_.a],pb=D.pts[wl_.b],hi=Math.hypot(pa.x-p.x,pa.y-p.y)<hr0?0:Math.hypot(pb.x-p.x,pb.y-p.y)<hr0?1:-1;
+     if(hi>=0){drag={t:'owend',o:wl_,isB:hi,snap:0};render();return}}
+    else{const ch_=partChain(wl_),hr=(e.pointerType=='touch'?34:16)/V.s,Tm=[ch_.V[0],ch_.V.at(-1)],ti=Tm.findIndex(P=>Math.hypot(P.x-p.x,P.y-p.y)<hr);
+    if(ti>=0){drag={t:'wend',ch:{W:ch_.W,V0:ch_.V},ti:ti?ch_.W.length:0,ax:null,snap:0,ops:opsSnap(ch_)};render();return}}}
    if(sel&&SHP().includes(sel.o)){const s0=sel.o,dp=delPos(s0);if(Math.hypot(dp.x-p.x,dp.y-p.y)<16/V.s){save();delSh(x=>x!=s0);sel=null;commit();return}
     const h=hl(s0).find(h=>!(s0.t=='img'&&h.id.length==1)&&Math.hypot(h.px-p.x,h.py-p.y)<th*1.6);if(h){const c0=isLn(s0)?{x:(s0.x1+s0.x2)/2,y:(s0.y1+s0.y2)/2}:cen(s0);drag={t:'hd',o:s0,h,sn:JSON.stringify(s0,(k_,v_)=>k_=='src'?undefined:v_),c0,a0:Math.atan2(p.y-c0.y,p.x-c0.x),r0:s0.rot||0};return}}
   let o=mode=='plan'?hitOp(p,th):null;if(o){const was=sel&&sel.op==o;sel={op:o};drag={t:'op',o,was};render();return}
   let s=hitSh(p,th);if(s){const was=sel&&sel.o==s;sel={o:s};drag={t:'mv',o:s,lx:p.x,ly:p.y,was};render();return}
   let d=mode=='plan'?hitDim(p,th):null;if(d){const tx=dimTextHit(d,p)?1:0,was=!!(sel&&sel.dg&&sel.dg.set.includes(d)),set=was?sel.dg.set.filter(x=>D.dims.includes(x)):[d];if(!was)sel={dg:{set,a:d,k:'one'}};else sel.dg.a=d;drag={t:'dim',o:d,tx,g:dimGrab(d,p,tx,0),set:tx?[d]:set,was};render();return}
    let mm_=mode=='plan'?hitMeas(p,th):null;if(mm_){drag={t:'meas',o:mm_};sel=null;return}
-  let w=mode=='plan'?near(p,th):null;if(w){if(w.w.kind=='part'){const was=!!(sel&&sel.wl==w.w),wl_=w.w,pk=wa(wl_)==0?'y':'x';sel={wl:wl_};drag={t:'wbody',o:wl_,was,pk,g:D.pts[wl_.a][pk]-p[pk],s0:D.pts[wl_.a][pk],mv:slideSet(wl_),snap:0};render();return}drag={t:'wall',o:w.w};sel=null;return}
+  let w=mode=='plan'?near(p,th):null;if(w){if(w.w.kind=='part'){const was=!!(sel&&sel.wl==w.w),wl_=w.w,pk=wa(wl_)==0?'y':'x';sel={wl:wl_};drag={t:'wbody',o:wl_,was,pk,g:D.pts[wl_.a][pk]-p[pk],s0:D.pts[wl_.a][pk],mv:slideSet(wl_),snap:0};render();return}{const was=!!(sel&&sel.wl==w.w);sel={wl:w.w};drag={t:'wall',o:w.w,was};render();return}}
   let a=mode=='plan'?D.areas.find(a=>Math.hypot((a.lx??a.x)-p.x,(a.ly??a.y)-p.y)<th*4):null;if(a){drag={t:'area',o:a};return}const im_=hitImg(p);if(im_){const was=!!(sel&&sel.o==im_);sel={o:im_};drag={t:'mv',o:im_,lx:p.x,ly:p.y,was};render();return}
   sel=null;render()}};
 cv.onpointermove=e=>{if(!dn){if(tool=='part'&&pmode!='hand'){if(pdrag){const mx=e.offsetX-pdrag.sx,my=e.offsetY-pdrag.sy;if(Math.hypot(mx,my)>3)pdrag.mv=1;cur=pdrag.pen?W(e):{x:pdrag.cx+mx/V.s,y:pdrag.cy+my/V.s};clampCur();hov=cur;render()}else if(e.pointerType=='mouse'){cur=W(e);hov=cur;render()}return}if(tool=='meas'){hov=W(e);render()}if((tool=='outer'||tool=='part')&&otl=='erase'){ocur=W(e);render()}return}const p=W(e);
- if(!dn.mv&&Math.hypot(e.offsetX-dn.sx,e.offsetY-dn.sy)>(drag&&drag.t=='dim'?3:6)){dn.mv=1;if(drag&&['hd','op','mv','dim','all','area','wend','wbody'].includes(drag.t))save()}
+ if(!dn.mv&&Math.hypot(e.offsetX-dn.sx,e.offsetY-dn.sy)>(drag&&drag.t=='dim'?3:6)){dn.mv=1;if(drag&&['hd','op','mv','dim','all','area','wend','wbody','owend'].includes(drag.t))save()}
  if(stk){if(stk.er){const a_=stk.at(-1);if(oErase(a_,p))stk.ch=1;stk.length=0;stk.push(p);ocur=p}else stk.push(p)}if(ghost!==null&&tool=='open')ghost=near(p,40/V.s);
  if(drag){const t=drag.t,o=drag.o;
   if(t=='pan'){V.ox=dn.ox+e.offsetX-dn.sx;V.oy=dn.oy+e.offsetY-dn.sy}
@@ -981,6 +991,7 @@ cv.onpointermove=e=>{if(!dn){if(tool=='part'&&pmode!='hand'){if(pdrag){const mx=
   else if(t=='op'&&dn.mv){const n=near(p,40/V.s);if(n){o.w=n.w.id;o.off=Math.max(0,Math.min(n.t*n.L-o.wd/2,Math.max(0,n.L-o.wd)))}}
    else if(t=='wend'&&dn.mv){moveTerm(drag,p)}
    else if(t=='wbody'&&dn.mv){slideWall(drag,p)}
+   else if(t=='owend'&&dn.mv){owMove(drag,p)}
    else if(t=='mk'){if(o.sym&&EQ[o.sym]){const ar=EQ[o.sym].ar,dx=p.x-o.x1,dy=p.y-o.y1,w_=Math.max(Math.abs(dx),Math.abs(dy)*ar);o.x2=o.x1+(dx<0?-1:1)*w_;o.y2=o.y1+(dy<0?-1:1)*w_/ar}else{o.x2=p.x;o.y2=p.y}}
   else if(t=='mv'&&dn.mv){const dx=p.x-drag.lx,dy=p.y-drag.ly;o.x1+=dx;o.x2+=dx;o.y1+=dy;o.y2+=dy;drag.lx=p.x;drag.ly=p.y}
    else if(t=='hd'){const h=drag.h,s0=JSON.parse(drag.sn),id=h.id;Object.assign(o,s0);
@@ -1000,7 +1011,7 @@ cv.onpointerup=async e=>{if(pdrag){const pd=pdrag;pdrag=null;partRelease(pd);ret
  if(tool=='area'&&!mv){const a={x:p.x,y:p.y,h:lastH},f=await ask('天井高さ',[{l:'高さ(mm)',v:lastH}]);if(f&&+f[0]>0){lastH=a.h=+f[0];save();D.areas.push(a);commit()}return}
   if(d&&d.t=='mk'){const s=d.o;if(s.t=='text'||s.t=='call'){if(s.t=='call'&&Math.hypot(s.x2-s.x1,s.y2-s.y1)<th*2){delSh(x=>x!=s);commit();return}const f=await ask(s.t=='call'?'引出線注釈':'文字',[{l:'内容',v:'',s:1}]);if(f&&f[0])s.text=f[0];else delSh(x=>x!=s)}
   else if(Math.hypot(s.x2-s.x1,s.y2-s.y1)<th){if(s.sym){const[sw,sh]=symDef(s.sym),cx0=s.x1,cy0=s.y1;s.x1=cx0-sw/2;s.y1=cy0-sh/2;s.x2=cx0+sw/2;s.y2=cy0+sh/2}else delSh(x=>x!=s)}if(SHP().includes(s)){if(['rect','ell','cloud'].includes(s.t)){const a=bb(s);s.x1=a.x1;s.y1=a.y1;s.x2=a.x2;s.y2=a.y2}if(mode=='rcp'&&s.sym){sel=null;lastP=s}else{tool='sel';sel={o:s}}}else sel=null;ui();commit();return}
- if(d&&!mv){if(d.t=='wall')return wallM(d.o);if(d.t=='wbody'){if(d.was)return wallM(d.o);render();return}if(d.t=='meas')return measM(d.o);if(d.t=='op'){if(d.was)return opM(d.o);render();return}
+ if(d&&!mv){if(d.t=='wall'){if(d.was)return wallM(d.o);render();return}if(d.t=='wbody'){if(d.was)return wallM(d.o);render();return}if(d.t=='meas')return measM(d.o);if(d.t=='op'){if(d.was)return opM(d.o);render();return}
      if(d.t=='dim'&&tool=='sel'){if(d.was&&d.set&&d.set.length==1)dimEdit(d.o);else render();return}
   if(d.t=='area'){const f=await ask('区画',[{l:'高さ(mm)',v:d.o.h}],1);if(f=='del'){save();D.areas=D.areas.filter(x=>x!=d.o)}else if(f&&+f[0]>0){save();d.o.h=lastH=+f[0]}commit();return}
   if(d.t=='mv'&&d.was&&(d.o.t=='text'||d.o.t=='call')){const f=await ask('文字',[{l:'内容',v:d.o.text,s:1}],1);if(f=='del'){save();delSh(x=>x!=d.o);sel=null}else if(f&&f[0]){save();d.o.text=f[0]}commit();return}}
