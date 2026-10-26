@@ -622,7 +622,7 @@ async function lzManual(){const w=LZ.tgt;if(!w||!D.walls.includes(w)){alert('先
  if(pt)fs.push({l:'測定面',v:labs[LZ.sd>0?0:1],sel:labs});fs.push({l:'寸法(mm)',v:v0(LZ.sd)});
  const f=await ask('直接入力 ─ '+(pt?'間仕切り':'外周壁'),fs,0,pt?(e,i)=>{if(i==0)e[1].value=v0(e[0].value==labs[0]?1:-1)}:null);if(!f)return;
  const sd=pt&&f[0]==labs[1]?-1:1,val=+f[pt?1:0];if(!(val>0))return;if(pt)LZ.sd=sd;lzApply(w,sd,val);ui();render()}
-function lzParse(dv,uuid){const n=dv.byteLength,hex=[...new Uint8Array(dv.buffer,dv.byteOffset,n)].map(b=>b.toString(16).padStart(2,'0')).join(' ');LZ.cnt=(LZ.cnt||0)+1;LZ.raw=hex.length>90?hex.slice(0,90)+'…':hex;let m=null;
+function lzParse(dv,uuid){const n=dv.byteLength,hex=[...new Uint8Array(dv.buffer,dv.byteOffset,n)].map(b=>b.toString(16).padStart(2,'0')).join(' ');LZ.cnt=(LZ.cnt||0)+1;(LZ.log=LZ.log||[]).push(hex);if(LZ.log.length>6)LZ.log.shift();LZ.raw=hex.length>90?hex.slice(0,90)+'…':hex;let m=null;
  if(uuid.startsWith('3ab10101')&&n>=4)m=dv.getFloat32(0,true);
  else if(n>=9&&dv.getUint8(0)==0xC0){const ok=v=>isFinite(v)&&v>=.05&&v<=250;const v7=n>=11?dv.getFloat32(7,true):NaN;if(ok(v7))m=v7;else for(let i=3;i+4<=n&&m==null;i++){const v=dv.getFloat32(i,true);if(ok(v))m=v}}
  else{try{const r=new TextDecoder().decode(dv).match(/(-?\d+(?:\.\d+)?)\s*(mm|cm|m)?/i);if(r){const v=parseFloat(r[1]),u=(r[2]||'').toLowerCase();if(u=='mm')m=v/1000;else if(u=='cm')m=v/100;else if(u=='m'||r[1].includes('.'))m=v}}catch(e){}}
@@ -630,7 +630,7 @@ function lzParse(dv,uuid){const n=dv.byteLength,hex=[...new Uint8Array(dv.buffer
 function lzRecv(dv,uuid){const v=lzParse(dv,uuid);if(v==null){if(tool=='laser')ui();return}const t=Date.now();if(LZ.last&&LZ.last.v==v&&t-LZ.lt<500)return;LZ.lt=t;LZ.last={v,t};
  if(tool=='laser'&&LZ.tgt&&D.walls.includes(LZ.tgt)&&LZ.armed)lzApply(LZ.tgt,LZ.sd,v);else LZ.msg='受信 '+v+' mm(壁が未選択、または反映済みのため図面は変更していません)';
  ui();render()}
-async function lzSync(){const wr=LZ.ch;if(!wr)return;const cmd=new Uint8Array([0xC0,0x55,0x02,0x01,0x00,0x1A]);LZ.wrOk=false;LZ.wrErr='';
+async function lzSync(bytes){const wr=LZ.ch;if(!wr)return;const cmd=new Uint8Array(bytes||[0xC0,0x55,0x02,0x01,0x00,0x1A]);LZ.wrOk=false;LZ.wrErr='';
  const tr=[];if(wr.properties.write)tr.push(()=>wr.writeValueWithResponse?wr.writeValueWithResponse(cmd):wr.writeValue(cmd));if(wr.properties.writeWithoutResponse)tr.push(()=>wr.writeValueWithoutResponse?wr.writeValueWithoutResponse(cmd):wr.writeValue(cmd));tr.push(()=>wr.writeValue(cmd));
  for(const f of tr){try{await f();LZ.wrOk=true;break}catch(e){LZ.wrErr=(e&&e.message)||String(e)}}}
 async function laserConnect(){
@@ -1049,7 +1049,7 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
    if(D.walls.some(w=>w.on))bt('↔ 内外反転',oFlip,'',false,'直前に確定した開いた外壁の、PB・下地を付ける側を反対にします');
    h(HINT.outer)}
   else if(tool=='laser'){const cn=!!(LZ.dev&&LZ.dev.gatt&&LZ.dev.gatt.connected);
-  sbBtn(s,cn?'📡 切断':'📡 距離計に接続',cn?laserDisc:laserConnect,cn?'':'ok');h(LZ.st+(cn?'('+LZ.name+')':''));if(cn&&LZ.ch)sbBtn(s,'⟳ 同期コマンド再送',async()=>{await lzSync();LZ.st='同期コマンド再送'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});
+  sbBtn(s,cn?'📡 切断':'📡 距離計に接続',cn?laserDisc:laserConnect,cn?'':'ok');h(LZ.st+(cn?'('+LZ.name+')':''));if(cn&&LZ.ch){sbBtn(s,'▶ 測定要求を送る',async()=>{await lzSync([0xC0,0x40,0x00,0xEE]);LZ.st='測定要求送信'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});}if(cn&&LZ.ch)sbBtn(s,'⟳ 同期コマンド再送',async()=>{await lzSync();LZ.st='同期コマンド再送'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});
   if(LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;
    if(w.kind=='part')[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()},LZ.sd==sd?'on':''));else h('外周壁');
    h('図面寸法 '+Math.round(w.kind=='part'?faceSpan(w,LZ.sd):wl(w))+' mm');
@@ -1057,7 +1057,7 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
    sbBtn(s,'↻ 再測定',()=>{LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()});sbBtn(s,'✎ 直接入力',lzManual);
    h(LZ.armed?'▶ 距離計で測定してください(測定待ち)':'✔ 反映済み ─ 再測定は壁をもう一度タップ/「再測定」')}
   else h('測定したい壁をタップ(間仕切りは測りたい面の側をタップ)');
-  if(LZ.msg)h(LZ.msg);if(LZ.last)h('最新受信 '+LZ.last.v+' mm');if(LZ.raw)h('受信'+(LZ.cnt||0)+'件 最新データ: '+LZ.raw)}
+  if(LZ.msg)h(LZ.msg);if(LZ.last)h('最新受信 '+LZ.last.v+' mm');h('受信'+(LZ.cnt||0)+'件'+(LZ.raw?' 最新データ: '+LZ.raw:' (まだ何も届いていません)'));if(LZ.log&&LZ.log.length>1)h('履歴: '+LZ.log.join(' | '))}
   else if(tool=='sel'){h(mode=='rcp'?'設備・図形をタップで選択 → ドラッグで移動、○で拡大縮小、緑○で回転、赤×で削除':HINT.sel)}
  else h(HINT[tool])}
 
