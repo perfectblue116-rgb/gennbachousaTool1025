@@ -58,7 +58,7 @@ canvas{position:absolute;left:0;top:0;touch-action:none}
 #sm .bx{background:#fff;border-radius:12px;padding:14px;width:min(600px,94vw);max-height:88vh;display:flex;flex-direction:column}
 #sm .sl{overflow:auto;flex:1;border-top:1px solid #e5e7eb}
 #sm .sr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 4px;border-bottom:1px solid #e5e7eb}
-#sm .sr.cur{background:#eff6ff}#sm .nm2{flex:1;min-width:150px;display:flex;flex-direction:column}#sm .nm2 span{font-size:11px;color:#64748b}
+#sm .sr.cur{background:#eff6ff}#sm .nm2{flex:1;min-width:150px;display:flex;flex-direction:column}#sm .nm2 span{font-size:11px;color:#64748b}#fm{position:fixed;inset:0;background:#0007;z-index:30;display:flex;align-items:center;justify-content:center}#fm .bx{background:#fff;border-radius:12px;padding:14px;width:min(600px,94vw);max-height:88vh;display:flex;flex-direction:column}#fm .sl{overflow:auto;flex:1;border-top:1px solid #e5e7eb}#fm .sr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 4px;border-bottom:1px solid #e5e7eb}#fm .sr.cur{background:#eff6ff}#fm .nm2{flex:1;min-width:150px;display:flex;flex-direction:column}#fm .nm2 span{font-size:11px;color:#64748b}#fm .fr{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end}#fm button{min-height:38px}#fm button.ok{background:#2563eb;color:#fff;border-color:#2563eb}#fm button.dn{color:#b91c1c}
 #sm .fr{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end}#sm button{min-height:38px}
 #sm button.ok{background:#2563eb;color:#fff;border-color:#2563eb}#sm button.dn{color:#b91c1c}</style></head><body>
 <div id="tb"></div><div id="sb"></div>
@@ -155,10 +155,11 @@ function frameV(c,ox,oy,R){c.save();c.strokeStyle='#000';c.fillStyle='#000';c.li
 let D=newD(),V={s:.05,ox:0,oy:0},tool='outer',pal=null,shp=null,sel=null,chain=null,hov=null,lastRC=0,lastRP=null,lastLC=0,lastLP=null,hist=[],lastH=2400,meta={name:'',title:'',date:'',sc:50};
 let palCat=null,measDown=false,dn=null,stk=null,drag=null,ghost=null,cw=0,ch=0,mp1=null,mz=null,mmode='set',ON=new Map(),dm=null,dax='auto',warned=false,initOK=false;
 let mode='plan',cur=null,pdrag=null,SITES={cur:null,list:{}};
+let PEN={o:'#2563eb',p:'#dc2626'};try{Object.assign(PEN,JSON.parse(localStorage.getItem('rat_pen')||'{}'))}catch(e){}
 let ostk=[],pstk=[],ohist=[],otl='pen',ocur=null,pmode='hand';const hwTool=()=>tool=='outer'||(tool=='part'&&pmode=='hand');/* 外壁アウトライン下書き: 画線配列 / 下書きの履歴 / ペン・消しゴム / 消しゴムの位置 */
 const SHP=()=>mode=='rcp'?D.cshapes:D.shapes,delSh=f=>{if(mode=='rcp')D.cshapes=D.cshapes.filter(f);else D.shapes=D.shapes.filter(f)};
-const ttl=()=>mode=='rcp'?(meta.titleC||(meta.title?meta.title+' 天井伏図':'')):meta.title;
-function newD(){return {pts:[],walls:[],ops:[],dims:[],shapes:[],cshapes:[],areas:[],meas:[],cfg:{os:'PBのみ',gl:25,pb:12.5,ps:'LGS75',pbd:12.5},n:1}}
+const ttl=()=>{const b=mode=='rcp'?(meta.titleC||(meta.title?meta.title+' 天井伏図':'')):meta.title,fn=floorName(1);return fn&&b?b+' '+fn:b};
+function newD(){return {pts:[],walls:[],ops:[],dims:[],shapes:[],cshapes:[],areas:[],meas:[],cfg:{st:'コンクリート',os:'PBのみ',gl:25,pb:12.5,ps:'LGS75',pbd:12.5},n:1}}
 function mig(d){d.meas=d.meas||[];d.cshapes=d.cshapes||[];d.cfg=Object.assign(newD().cfg,d.cfg||{});d.walls.forEach(w=>{if(w.kind!='part')return;if(w.sub=='LGS'){if(w.t==100){w.sub='LGS75';w.bd=12.5}else{w.sub='その他';w.bd=0}}else if(!/^LGS/.test(w.sub||'')){w.sub='その他';w.bd=0}else w.bd=w.bd||12.5});return d}
 const thk=(s,bd)=>/^LGS/.test(s)?+s.slice(3)+2*bd:null;
 const wid=i=>D.walls.find(w=>w.id==i),wp=w=>[D.pts[w.a],D.pts[w.b]],wl=w=>{const[A,B]=wp(w);return Math.hypot(B.x-A.x,B.y-A.y)};
@@ -340,14 +341,40 @@ function wallOverlay(c,w){if(w.kind=='outer'){const P=p=>[p.x*V.s+V.ox,p.y*V.s+V
 /* ---- 現場管理・保存・JSON・キャッシュクリア ---- */
 const sid=()=>'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const siteName=()=>(SITES.list[SITES.cur]||{}).name||'';
+/* ---- 複数階 ---- 現場 s.floors=[{n:'1階',D}] , s.fi=表示中の階。s.D は互換のため常に表示中の階を指す */
+function FL(s){if(!s.floors||!s.floors.length){s.floors=[{n:'1階',D:s.D||newD()}];s.fi=0}if(!(s.fi>=0&&s.fi<s.floors.length))s.fi=0;return s.floors}
+function curD(s){return FL(s)[s.fi].D}
+function floorName(multiOnly){const s=SITES.list[SITES.cur];if(!s)return'';const F=FL(s);return multiOnly&&F.length<2?'':F[s.fi].n}
+function floorSwitch(i){const s=SITES.list[SITES.cur];if(!s)return;const F=FL(s);if(i<0||i>=F.length||i==s.fi)return;persist();s.fi=i;D=mig(curD(s));s.D=D;
+ sel=null;chain=null;hov=null;mp1=null;mz=null;dm=null;pdrag=null;hist=[];ostk=[];pstk=[];ohist=[];warned=false;fit();ui();commit()}
+async function floorAdd(){const s=SITES.list[SITES.cur];if(!s)return;const F=FL(s);persist();
+ const f=await ask('階の追加',[{l:'階の名称',v:(F.length+1)+'階',s:1,type:'text'},{l:'作成方法',v:'空の図面',sel:['空の図面','現在の階を複製']}]);if(!f||!f[0].trim())return;
+ const nd=f[1]=='現在の階を複製'?JSON.parse(JSON.stringify(D)):newD();F.push({n:f[0].trim(),D:nd});const m=$('fm');if(m)m.remove();floorSwitch(F.length-1)}
+function floorM(){const old=$('fm');if(old)old.remove();const s=SITES.list[SITES.cur];if(!s)return;persist();const F=FL(s);
+ const m=document.createElement('div');m.id='fm';const bx=document.createElement('div');bx.className='bx';m.appendChild(bx);
+ const T=document.createElement('b');T.textContent='階の管理(現場: '+s.name+')';T.style.fontSize='16px';bx.appendChild(T);
+ const H=document.createElement('div');H.className='h';H.style.margin='4px 0 8px';H.textContent='階は必要に応じて追加できます。階ごとに平面現調図・天井配置確認図を別々に作成・保存します。複数階ある場合、図面名称の末尾に階名が付きます。';bx.appendChild(H);
+ const sl=document.createElement('div');sl.className='sl';bx.appendChild(sl);const close=()=>m.remove(),redo=()=>{close();floorM()};
+ F.forEach((fl,i)=>{const r=document.createElement('div');r.className='sr'+(i==s.fi?' cur':'');const nm=document.createElement('div');nm.className='nm2';const a=document.createElement('b');a.textContent=fl.n+(i==s.fi?'(表示中)':'');const b=document.createElement('span');b.textContent='壁'+(fl.D.walls||[]).length+' / 寸法'+(fl.D.dims||[]).length;nm.append(a,b);r.appendChild(nm);
+  const bt=(l,fn,cls)=>{const x=document.createElement('button');x.textContent=l;if(cls)x.className=cls;x.onclick=fn;r.appendChild(x)};
+  if(i!=s.fi)bt('開く',()=>{floorSwitch(i);close()},'ok');
+  bt('名称変更',()=>{const n=prompt('階の名称',fl.n);if(n&&n.trim()){fl.n=n.trim();persist();ui();redo()}});
+  if(i>0)bt('↑',()=>{const c=F[s.fi];[F[i-1],F[i]]=[F[i],F[i-1]];s.fi=F.indexOf(c);persist();ui();redo()});
+  if(i<F.length-1)bt('↓',()=>{const c=F[s.fi];[F[i+1],F[i]]=[F[i],F[i+1]];s.fi=F.indexOf(c);persist();ui();redo()});
+  bt('複製',()=>{persist();F.splice(i+1,0,{n:fl.n+'(複製)',D:JSON.parse(JSON.stringify(fl.D))});if(s.fi>i)s.fi++;persist();ui();redo()});
+  if(F.length>1)bt('削除',()=>{if(!confirm('「'+fl.n+'」を削除しますか?(元に戻せません)'))return;const cur=F[s.fi];F.splice(i,1);if(cur===fl){s.fi=Math.min(i,F.length-1);D=mig(F[s.fi].D);s.D=D;sel=null;hist=[];fit()}else s.fi=F.indexOf(cur);persist();ui();commit();redo()},'dn');
+  sl.appendChild(r)});
+ const fr=document.createElement('div');fr.className='fr';bx.appendChild(fr);
+ const fb=(l,fn,cls)=>{const x=document.createElement('button');x.textContent=l;if(cls)x.className=cls;x.onclick=fn;fr.appendChild(x)};fb('＋ 階を追加',floorAdd,'ok');fb('閉じる',close);
+ m.onclick=e=>{if(e.target==m)close()};document.body.appendChild(m)}
 function siteLabel(){const n=siteName();return n.length>7?n.slice(0,7)+'…':n||'現場'}
-function persist(){try{if(!SITES.cur||!SITES.list[SITES.cur])return;const s=SITES.list[SITES.cur];s.D=D;s.meta=meta;s.mode=mode;s.t=Date.now();localStorage.setItem('rat_sites',JSON.stringify(SITES))}catch(e){if(!persist.w){persist.w=1;alert('ブラウザの保存容量が不足しています。「JSON出力」でバックアップしてください')}}}
+function persist(){try{if(!SITES.cur||!SITES.list[SITES.cur])return;const s=SITES.list[SITES.cur];FL(s)[s.fi].D=D;s.D=D;s.meta=meta;s.mode=mode;s.t=Date.now();localStorage.setItem('rat_sites',JSON.stringify(SITES))}catch(e){if(!persist.w){persist.w=1;alert('ブラウザの保存容量が不足しています。「JSON出力」でバックアップしてください')}}}
 function loadSites(){try{const j=JSON.parse(localStorage.getItem('rat_sites')||'null');if(j&&j.list&&Object.keys(j.list).length)SITES={cur:j.cur,list:j.list}}catch(e){}
  if(!SITES.cur||!SITES.list[SITES.cur]){let first=null;try{first=JSON.parse(localStorage.getItem('rat')||'null')}catch(e){}
   if(!Object.keys(SITES.list).length){const id=sid();SITES.list[id]={name:'現場1',D:first&&first.D?first.D:newD(),meta:first&&first.meta||{name:'',title:'',date:'',sc:50},mode:'plan',t:Date.now()}}
   SITES.cur=Object.keys(SITES.list)[0]}
- const s=SITES.list[SITES.cur];D=mig(s.D);meta=Object.assign({name:'',title:'',date:'',sc:50},s.meta||{});mode=s.mode=='rcp'?'rcp':'plan';if(mode=='rcp'){tool='shape';shp=shp||'sym:ダウンライト'}}
-function siteSwitch(id){persist();SITES.cur=id;const s=SITES.list[id];D=mig(s.D);meta=Object.assign({name:'',title:'',date:'',sc:50},s.meta||{});mode=s.mode=='rcp'?'rcp':'plan';tool=mode=='rcp'?'shape':'outer';if(mode=='rcp'&&!shp)shp='sym:ダウンライト';
+ const s=SITES.list[SITES.cur];D=mig(curD(s));s.D=D;meta=Object.assign({name:'',title:'',date:'',sc:50},s.meta||{});mode=s.mode=='rcp'?'rcp':'plan';if(mode=='rcp'){tool='shape';shp=shp||'sym:ダウンライト'}}
+function siteSwitch(id){persist();SITES.cur=id;const s=SITES.list[id];D=mig(curD(s));s.D=D;meta=Object.assign({name:'',title:'',date:'',sc:50},s.meta||{});mode=s.mode=='rcp'?'rcp':'plan';tool=mode=='rcp'?'shape':'outer';if(mode=='rcp'&&!shp)shp='sym:ダウンライト';
  sel=null;chain=null;hov=null;mp1=null;mz=null;dm=null;hist=[];ostk=[];pstk=[];ohist=[];warned=false;fit();ui();commit()}
 function siteNew(){const n=prompt('新しい現場名を入力してください','現場'+(Object.keys(SITES.list).length+1));if(!n)return;persist();const id=sid();SITES.list[id]={name:n,D:newD(),meta:{name:n,title:'',date:'',sc:50},mode:'plan',t:Date.now()};siteSwitch(id);const m=$('sm');if(m)m.remove()}
 function siteM(){const old=$('sm');if(old)old.remove();persist();const m=document.createElement('div');m.id='sm';const bx=document.createElement('div');bx.className='bx';m.appendChild(bx);
@@ -360,7 +387,7 @@ function siteM(){const old=$('sm');if(old)old.remove();persist();const m=documen
   const bt=(l,fn,cls)=>{const x=document.createElement('button');x.textContent=l;if(cls)x.className=cls;x.onclick=fn;r.appendChild(x)};
   if(id!=SITES.cur)bt('開く',()=>{siteSwitch(id);close()},'ok');
   bt('名称変更',()=>{const n=prompt('現場名',s.name);if(n){s.name=n;if(id==SITES.cur)ui();persist();redo()}});
-  bt('複製',()=>{persist();const nid=sid();SITES.list[nid]={name:s.name+'(複製)',D:JSON.parse(JSON.stringify(s.D)),meta:JSON.parse(JSON.stringify(s.meta||{})),mode:s.mode,t:Date.now()};persist();redo()});
+  bt('複製',()=>{persist();const nid=sid();SITES.list[nid]=Object.assign(JSON.parse(JSON.stringify({D:s.D,floors:FL(s),fi:s.fi,meta:s.meta||{},mode:s.mode})),{name:s.name+'(複製)',t:Date.now()});SITES.list[nid].D=SITES.list[nid].floors[SITES.list[nid].fi].D;persist();redo()});
   bt('削除',()=>{if(!confirm('現場「'+s.name+'」を削除しますか?(元に戻せません)'))return;delete SITES.list[id];if(!Object.keys(SITES.list).length){const n=sid();SITES.list[n]={name:'現場1',D:newD(),meta:{name:'',title:'',date:'',sc:50},mode:'plan',t:Date.now()};SITES.cur=n;siteSwitch(n)}else if(id==SITES.cur){siteSwitch(Object.keys(SITES.list)[0])}persist();ui();redo()},'dn');
   sl.appendChild(r)});
  const f=document.createElement('div');f.className='fr';bx.appendChild(f);
@@ -370,11 +397,14 @@ function siteM(){const old=$('sm');if(old)old.remove();persist();const m=documen
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
 async function jsonOut(){const f=await ask('JSON出力',[{l:'出力する図',v:mode=='rcp'?'天井配置確認図':'平面現調図',sel:['平面現調図','天井配置確認図','両方(平面+天井)']}]);if(!f)return;
  const k=f[0][0]=='平'?'plan':f[0][0]=='天'?'rcp':'both',d=JSON.parse(JSON.stringify(D));if(k=='plan')d.cshapes=[];if(k=='rcp')d.shapes=[];
- const j={kind:'room-area-tool',ver:2,site:siteName(),view:k,exported:new Date().toISOString(),meta,D:d,lib:LIB};
+ const cs=SITES.list[SITES.cur],Fa=FL(cs).map((fl,i)=>{const dd=JSON.parse(JSON.stringify(i==cs.fi?D:fl.D));if(k=='plan')dd.cshapes=[];if(k=='rcp')dd.shapes=[];return{n:fl.n,D:dd}});
+  const j={kind:'room-area-tool',ver:3,site:siteName(),view:k,exported:new Date().toISOString(),meta,D:d,floors:Fa,fi:cs.fi,lib:LIB};
  dl(new Blob([JSON.stringify(j)],{type:'application/json'}),(siteName()||meta.name||'現場')+'_'+({plan:'平面',rcp:'天井',both:'平面天井'})[k]+'.json')}
 function jsonIn(){const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
  inp.onchange=()=>{const fl=inp.files[0];if(!fl)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result),dd=j.D;if(j.lib)mergeLib(j.lib);if(!dd||!dd.walls)throw 0;persist();const id=sid();
-  SITES.list[id]={name:j.site||fl.name.replace(/\.json$/i,''),D:mig(dd),meta:Object.assign({name:'',title:'',date:'',sc:50},j.meta||{}),mode:j.view=='rcp'?'rcp':'plan',t:Date.now()};siteSwitch(id);const sm=$('sm');if(sm)sm.remove()}catch(e){alert('JSONを読み込めませんでした')}};r.readAsText(fl)};inp.click()}
+  SITES.list[id]={name:j.site||fl.name.replace(/\.json$/i,''),D:mig(dd),meta:Object.assign({name:'',title:'',date:'',sc:50},j.meta||{}),mode:j.view=='rcp'?'rcp':'plan',t:Date.now()};
+   {const fls=Array.isArray(j.floors)&&j.floors.length?j.floors.filter(x=>x&&x.D&&x.D.walls).map(x=>({n:x.n||'階',D:mig(x.D)})):null;
+   if(fls&&fls.length){const S_=SITES.list[id];S_.floors=fls;S_.fi=Math.min(Math.max(+j.fi||0,0),fls.length-1);S_.D=fls[S_.fi].D}}siteSwitch(id);const sm=$('sm');if(sm)sm.remove()}catch(e){alert('JSONを読み込めませんでした')}};r.readAsText(fl)};inp.click()}
 async function clearCache(){const f=await ask('キャッシュクリア',[{l:'消去範囲(全データ=現場も消去)',v:'表示キャッシュのみ',sel:['表示キャッシュのみ','全データ']}]);if(!f)return;const all=f[0]=='全データ';
  if(all&&!confirm('保存済みの全現場データが消えます。JSON出力でバックアップ済みですか?\n続行しますか?'))return;persist();
  try{if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}}catch(e){}
@@ -524,7 +554,7 @@ function hwConfirm(){if(!ostk.length&&!pstk.length){alert('先に外周・間仕
  ostk=[];pstk=[];ohist=[];try{alignPart()}catch(e){}commit();ui()}
 /* ---- 外周ライニング(PB+下地) ---- */
 function prepOut(){ON=new Map();const os=D.walls.filter(w=>w.kind=='outer');os.forEach(w=>{if(w.on){ON.set(w,[w.on[0],w.on[1]]);return}const[A,B]=wp(w),Ln=wl(w)||1;let n=[-(B.y-A.y)/Ln,(B.x-A.x)/Ln];const mx=(A.x+B.x)/2+n[0]*60,my=(A.y+B.y)/2+n[1]*60;let c=0;os.forEach(v=>{if(v.on)return;const[P,Q]=wp(v);if((P.y>my)!=(Q.y>my)&&mx<P.x+(my-P.y)*(Q.x-P.x)/(Q.y-P.y))c++});if(c%2)n=[-n[0],-n[1]];ON.set(w,n)})}
-const OD=w=>{const s=w.os||D.cfg.os,g=+(w.gl||D.cfg.gl),dp=s=='GL'?g:/^LGS/.test(s)?+s.slice(3):0,pb=+D.cfg.pb;return[0,pb,pb+dp]};
+const OD=w=>{const s=w.os||D.cfg.os,g=+(w.gl||D.cfg.gl),dp=s=='GL'?g:/^LGS/.test(s)?+s.slice(3):/^鉄骨胴縁/.test(s)?100:0,pb=+D.cfg.pb;return[0,pb,pb+dp]};
 function oc(w,pi,k){const P=D.pts[pi],n=ON.get(w)||[0,0],d=OD(w)[k],m=D.walls.find(x=>x!==w&&x.kind=='outer'&&(x.a==pi||x.b==pi));
  if(m&&wa(w)!=wa(m)){const nm=ON.get(m)||[0,0],dm=OD(m)[k];return wa(w)==0?{x:P.x+nm[0]*dm,y:P.y+n[1]*d}:{x:P.x+n[0]*d,y:P.y+nm[1]*dm}}
  return{x:P.x+n[0]*d,y:P.y+n[1]*d}}
@@ -608,11 +638,29 @@ function segInfo(o){if(!o||o.kind!='outer')return null;prepOut();const ax=wa(o),
  bl.sort((a,b)=>a.lo-b.lo);const m=[];bl.forEach(b=>{const l=m.at(-1);if(l&&b.lo<=l.hi+1){l.hi=Math.max(l.hi,b.hi);l.c=Math.min(l.c,b.c)}else m.push({...b})});
  const segs=[];let prev=A;m.forEach(b=>{if(b.lo-prev>=1)segs.push({lo:prev,hi:b.lo,c:b.c});prev=b.hi});if(B-prev>=1)segs.push({lo:prev,hi:B,c:null});
  return{lk,k,face,A,B,m,segs}}
-function lzCur(w,sd){if(w.kind=='part')return Math.round(faceSpan(w,sd));if(w.kind=='outer'&&LZ.seg!=null){const I=segInfo(w),g=I&&I.segs[LZ.seg];if(g)return Math.round(g.hi-g.lo)}return Math.round(wl(w))}
+function lzCur(w,sd,ns){if(w.kind=='part'){if(!ns&&LZ.seg!=null){const I=segInfoP(w,sd),g=I.segs[LZ.seg];if(g)return Math.round(g.hi-g.lo)}return Math.round(faceSpan(w,sd))}if(w.kind=='outer'&&LZ.seg!=null){const I=segInfo(w),g=I&&I.segs[LZ.seg];if(g)return Math.round(g.hi-g.lo)}return Math.round(wl(w))}
 /* 区間の寸法を実測値に合わせる: 区間の大きい側(右/下)にある間仕切り・外壁角を動かし、それより先の部分は形を保ったまま平行移動 */
 function segApply(o,i,val){const I=segInfo(o),g=I&&I.segs[i];if(!g)return false;const d=val-(g.hi-g.lo);if(Math.abs(d)<.5)return true;
  const cut=g.c!=null?g.c:Math.max(D.pts[o.a][I.lk],D.pts[o.b][I.lk]),snap=opsSnap({W:D.walls.map(w=>({w}))});
  D.pts.forEach(p=>{if(p[I.lk]>=cut-.5)p[I.lk]+=d});opsFix(snap);return true}
+/* 間仕切りの面を、他の間仕切りとの交点(十字・T字)ごとの区間に分割。
+   sd側の面に出てくる交差壁(十字=両側、T字=その側のみ)の壁厚ぶんを除いた区間を返す。端部(コーナー・外周取付)は面の端として扱う */
+function segInfoP(w,sd){const g=wN(w),L=g.L,[ea,eb]=pe(w),lo0=-ea,hi0=L+eb,bl=[];
+ D.walls.forEach(o=>{if(o===w||o.kind!='part'||wa(o)==wa(w))return;const[P,Q]=wp(o),X=segX(g.A,g.B,P,Q);if(!X)return;
+  const r=(X.x-g.A.x)*g.u.x+(X.y-g.A.y)*g.u.y;if(r<=1.5||r>=L-1.5)return;
+  const qa=(P.x-g.A.x)*g.n.x+(P.y-g.A.y)*g.n.y,qb=(Q.x-g.A.x)*g.n.x+(Q.y-g.A.y)*g.n.y;
+  if(Math.max(qa*sd,qb*sd)<=1.5)return;
+  bl.push({lo:r-o.t/2,hi:r+o.t/2,o})});
+ bl.sort((a,b)=>a.lo-b.lo);const m=[];bl.forEach(b=>{const l=m.at(-1);if(l&&b.lo<=l.hi+1)l.hi=Math.max(l.hi,b.hi);else m.push({...b})});
+ const segs=[];let prev=lo0;m.forEach(b=>{if(b.lo-prev>=1)segs.push({lo:prev,hi:b.lo,ho:b.o});prev=Math.max(prev,b.hi)});if(hi0-prev>=1)segs.push({lo:prev,hi:hi0,ho:null});
+ const h=w.t/2*sd;return{g,segs,pt:r=>({x:g.A.x+g.u.x*r+g.n.x*h,y:g.A.y+g.u.y*r+g.n.y*h})}}
+/* 区間の寸法を実測値に合わせる: 区間の終端側(右/下)にある交差壁を平行移動(その壁に取り付く間仕切りは伸縮)。
+   終端側が壁の端部(交差壁なし)の場合は、その壁の端を伸縮する */
+function segApplyP(w,sd,i,val){const I=segInfoP(w,sd),s=I.segs[i];if(!s)return false;const d=val-(s.hi-s.lo);if(Math.abs(d)<.5)return true;
+ const snap=opsSnap({W:D.walls.map(x=>({w:x}))});
+ if(s.ho){const lk=wa(w)==0?'x':'y',dl=d*(Math.sign(I.g.u[lk])||1);slideSet(s.ho).forEach(q=>{q.pt[lk]+=dl})}
+ else{lzResize(w,d,false);try{alignPart()}catch(e){}}
+ opsFix(snap);return true}
 function lzLabel(w,sd){if(w.kind!='part')return'外周壁';const g=wN(w);return'間仕切り '+dirJ({x:g.n.x*sd,y:g.n.y*sd})+'側の面'}
 /* 間仕切りの片面の長さ(納まり処理後の実際に描かれている面の端〜端) */
 function faceSpan(w,sd,segs){const g=wN(w);
@@ -634,6 +682,7 @@ function lzResize(w,d,endA){const[A,B]=wp(w),k=Math.abs(B.x-A.x)>=Math.abs(B.y-A
 function lzApply(w,sd,val){val=Math.round(val);if(!(val>=50)){LZ.msg='値が不正です';return false}
  const lab=lzLabel(w,sd);save();const LK=linkSnap(x=>x===w);
  if(w.kind=='outer'&&LZ.seg!=null){if(!segApply(w,LZ.seg,val)){LZ.msg='区間を特定できませんでした';return false}LZ.msg=lab+' 区間'+(LZ.seg+1)+' '+val+' mm を反映しました(これより先の部分は平行移動)';linkFix(LK);commit()}
+ else if(w.kind=='part'&&LZ.seg!=null){if(!segApplyP(w,sd,LZ.seg,val)){LZ.msg='区間を特定できませんでした';return false}LZ.msg=lab+' 区間'+(LZ.seg+1)+' '+val+' mm を反映しました(交点の壁を平行移動)';linkFix(LK);commit()}
  else if(w.kind=='outer'){if(val!=Math.round(wl(w)))setLen(w,val);w.fix=1;LZ.msg=lab+' '+val+' mm を反映しました';linkFix(LK);commit()}
  else{w.ms=w.ms||{};w.ms[sd>0?'p':'m']=val;w.fix=1;let rec=false,note='';
   if(Math.abs(val-faceSpan(w,sd))>=.5){const aA=!!(w.at&&w.at[0]),aB=!!(w.at&&w.at[1]);
@@ -644,13 +693,13 @@ function lzApply(w,sd,val){val=Math.round(val);if(!(val>=50)){LZ.msg='値が不�
  LZ.armed=false;LZ.done={v:val};return true}
 function laserPick(p){const n=near(p,30/V.s);if(!n){LZ.tgt=null;LZ.msg='';ui();return}
  const w=n.w;let sd=1;if(w.kind=='part'){const g=wN(w);sd=((p.x-g.A.x)*g.n.x+(p.y-g.A.y)*g.n.y)>=0?1:-1}
- LZ.seg=null;if(w.kind=='outer'){const I=segInfo(w);if(I&&I.m.length&&I.segs.length){const q=p[I.lk];let bi=0,bd=1e18;I.segs.forEach((g,i)=>{const d=q<g.lo?g.lo-q:q>g.hi?q-g.hi:0;if(d<bd){bd=d;bi=i}});LZ.seg=bi}}
+ LZ.seg=null;if(w.kind=='part'){const I=segInfoP(w,sd);if(I.segs.length>1){const q=(p.x-I.g.A.x)*I.g.u.x+(p.y-I.g.A.y)*I.g.u.y;let bi=0,bd=1e18;I.segs.forEach((g,i)=>{const d=q<g.lo?g.lo-q:q>g.hi?q-g.hi:0;if(d<bd){bd=d;bi=i}});LZ.seg=bi}}if(w.kind=='outer'){const I=segInfo(w);if(I&&I.m.length&&I.segs.length){const q=p[I.lk];let bi=0,bd=1e18;I.segs.forEach((g,i)=>{const d=q<g.lo?g.lo-q:q>g.hi?q-g.hi:0;if(d<bd){bd=d;bi=i}});LZ.seg=bi}}
  LZ.tgt=w;LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui()}
 async function lzManual(){const w=LZ.tgt;if(!w||!D.walls.includes(w)){alert('先に壁をタップして選択してください');return}
- const pt=w.kind=='part',fs=[],labs=pt?[lzLabel(w,1),lzLabel(w,-1)]:null,v0=s=>lzCur(w,s);
+ const pt=w.kind=='part',fs=[],labs=pt?[lzLabel(w,1),lzLabel(w,-1)]:null,v0=s=>lzCur(w,s,s!=LZ.sd);
  if(pt)fs.push({l:'測定面',v:labs[LZ.sd>0?0:1],sel:labs});fs.push({l:'寸法(mm)',v:v0(LZ.sd)});
  const f=await ask('直接入力 ─ '+(pt?'間仕切り':'外周壁'),fs,0,pt?(e,i)=>{if(i==0)e[1].value=v0(e[0].value==labs[0]?1:-1)}:null);if(!f)return;
- const sd=pt&&f[0]==labs[1]?-1:1,val=+f[pt?1:0];if(!(val>0))return;if(pt)LZ.sd=sd;lzApply(w,sd,val);ui();render()}
+ const sd=pt&&f[0]==labs[1]?-1:1,val=+f[pt?1:0];if(!(val>0))return;if(pt){if(sd!=LZ.sd)LZ.seg=null;LZ.sd=sd}lzApply(w,sd,val);ui();render()}
 function lzParse(dv,uuid){const n=dv.byteLength,hex=[...new Uint8Array(dv.buffer,dv.byteOffset,n)].map(b=>b.toString(16).padStart(2,'0')).join(' ');LZ.cnt=(LZ.cnt||0)+1;(LZ.log=LZ.log||[]).push(hex);if(LZ.log.length>6)LZ.log.shift();LZ.raw=hex.length>90?hex.slice(0,90)+'…':hex;let m=null;
  if(uuid.startsWith('3ab10101')&&n>=4)m=dv.getFloat32(0,true);
  else if(n>=9&&dv.getUint8(0)==0xC0){const ok=v=>isFinite(v)&&v>=.05&&v<=250;const v7=n>=11?dv.getFloat32(7,true):NaN;if(ok(v7))m=v7;else for(let i=3;i+4<=n&&m==null;i++){const v=dv.getFloat32(i,true);if(ok(v))m=v}}
@@ -685,7 +734,7 @@ function draw(c,V,k,ui,pdf){
   imgPass(c,V,S);if(RC)c.globalAlpha=.4;prepOut();const poly=(q,fill,st,lw)=>{c.beginPath();q.forEach((p,i)=>{const[x,y]=S(p);i?c.lineTo(x,y):c.moveTo(x,y)});c.closePath();if(fill){c.fillStyle=fill;c.fill()}if(st){c.strokeStyle=st;c.lineWidth=lw;c.stroke()}};
   const pb=(w,o0,o1)=>{let[A,B]=wp(w);const Ln=wl(w)||1,nx=-(B.y-A.y)/Ln,ny=(B.x-A.x)/Ln,[ea,eb]=pe(w);A={x:A.x-ny*ea,y:A.y+nx*ea};B={x:B.x+ny*eb,y:B.y-nx*eb};return[[A,o0],[B,o0],[B,o1],[A,o1]].map(([P,o])=>({x:P.x+nx*o,y:P.y+ny*o}))};
   const OW=D.walls.filter(w=>w.kind=='outer'),PW=D.walls.filter(w=>w.kind=='part');
-  OW.forEach(w=>{const d=OD(w),LE=q=>{c.strokeStyle='#000';c.lineWidth=.8*k;for(const[i,j]of[[0,1],[3,2]]){const[x1,y1]=S(q[i]),[x2,y2]=S(q[j]);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()}};let q=oq(w,0,1);poly(q,'#9ca3af');LE(q);if(d[2]>d[1]){q=oq(w,1,2);poly(q,(w.os||D.cfg.os)=='GL'?'#fde68a':'#f3f4f6');LE(q)}});
+  OW.forEach(w=>{const d=OD(w),LE=q=>{c.strokeStyle='#000';c.lineWidth=.8*k;for(const[i,j]of[[0,1],[3,2]]){const[x1,y1]=S(q[i]),[x2,y2]=S(q[j]);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()}};let q=oq(w,0,1);poly(q,'#9ca3af');LE(q);if(d[2]>d[1]){q=oq(w,1,2);poly(q,(w.os||D.cfg.os)=='GL'?'#fde68a':/^鉄骨胴縁/.test(w.os||D.cfg.os)?'#bae6fd':'#f3f4f6');LE(q)}});
   const PL=PW.filter(w=>!isG(w)),GG=partGeo();
   PL.forEach(w=>poly(pb(w,-w.t/2,w.t/2),w.bd?'#f3f4f6':'#6b7280','#374151',.8*k));
   GG.fills.forEach(f=>poly(f.p,f.c));
@@ -693,7 +742,7 @@ function draw(c,V,k,ui,pdf){
   PL.forEach(w=>{let[A,B]=wp(w);const Ln=wl(w)||1,ux=(B.x-A.x)/Ln,uy=(B.y-A.y)/Ln,[ea,eb]=pe(w),a=S({x:A.x-ux*ea,y:A.y-uy*ea}),b=S({x:B.x+ux*eb,y:B.y+uy*eb});c.save();if(c.setLineDash)c.setLineDash([9*k,3*k,2*k,3*k]);c.strokeStyle='#dc2626';c.lineWidth=.7*k;c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();c.restore()});
   PL.forEach(w=>{if(w.bd>0){poly(pb(w,-w.t/2,-w.t/2+w.bd),'#9ca3af','#374151',.6*k);poly(pb(w,w.t/2-w.bd,w.t/2),'#9ca3af','#374151',.6*k)}});
   OW.forEach(w=>{const[A,B]=wp(w).map(S);c.beginPath();c.moveTo(...A);c.lineTo(...B);c.strokeStyle='#000';c.lineWidth=3*k;c.stroke()});
-  OW.forEach(w=>{const d=OD(w);if(d[2]>d[1]&&wl(w)>1500){const s_=w.os||D.cfg.os,[a,b]=[oc(w,w.a,2),oc(w,w.b,2)].map(S),n=ON.get(w)||[0,0];let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.abs(ang)>Math.PI/2)ang+=Math.PI;c.save();c.translate((a[0]+b[0])/2+n[0]*9*k,(a[1]+b[1])/2+n[1]*9*k);c.rotate(ang);c.fillStyle='#374151';c.font=`${9*k}px sans-serif`;c.fillText('PB'+(+D.cfg.pb)+'+'+(s_=='GL'?'GL'+(w.gl||D.cfg.gl):s_),0,0);c.restore()}});
+  OW.forEach(w=>{const d=OD(w);if(d[2]>d[1]&&wl(w)>1500){const s_=w.os||D.cfg.os,[a,b]=[oc(w,w.a,2),oc(w,w.b,2)].map(S),n=ON.get(w)||[0,0];let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.abs(ang)>Math.PI/2)ang+=Math.PI;c.save();c.translate((a[0]+b[0])/2+n[0]*9*k,(a[1]+b[1])/2+n[1]*9*k);c.rotate(ang);c.fillStyle='#374151';c.font=`${9*k}px sans-serif`;c.fillText((w.st||D.cfg.st||'')+' PB'+(+D.cfg.pb)+'+'+(s_=='GL'?'GL'+(w.gl||D.cfg.gl):s_),0,0);c.restore()}});
   
  D.ops.forEach(o=>{const g=og(o);if(!g)return;const a=S(g.p1),b=S(g.p2),pt=g.w.kind=='part',tk=pt?Math.max(g.w.t*V.s,3*k):3*k;
   c.beginPath();c.moveTo(...a);c.lineTo(...b);c.strokeStyle='#fff';c.lineWidth=tk+4*k;c.stroke();
@@ -704,9 +753,9 @@ function draw(c,V,k,ui,pdf){
   if(o.k=='片開き'||o.k=='両開き'||o.k=='スイングドア'){const sd=o.k=='スイングドア',hs=o.k=='片開き'?[o.hg?1:0]:[0,1],rr=o.k=='片開き'?r:r/2;for(const oo of sd?[o,{...o,sw:-(o.sw<0?-1:1)}]:[o])for(const wh of hs){const q=swg(oo,g,wh),H=S(q.H);c.beginPath();c.moveTo(H[0]+q.m.x*rr,H[1]+q.m.y*rr);c.lineTo(...H);c.lineTo(H[0]+rr*Math.cos(q.aE),H[1]+rr*Math.sin(q.aE));c.stroke();if(o.cat=='木製建具'&&c.setLineDash)c.setLineDash([6*k,4*k]);c.beginPath();c.arc(H[0],H[1],rr,q.aE,q.aM,q.ccw);c.stroke();if(c.setLineDash)c.setLineDash([])}}
    c.fillStyle=c.strokeStyle;c.font=`${9*k}px sans-serif`;if(!RC)c.fillText(`${o.k} ${o.wd}×${o.h}`,(a[0]+b[0])/2+g.n.x*(off+9*k),(a[1]+b[1])/2+g.n.y*(off+9*k))});
  const _bx=dimBoxX();D.dims.forEach(d=>{const g=dimG(d);if(!g)return;const a=S(g.a),b=S(g.b),A=S(g.A),B=S(g.B),T=S(g.tm);c.strokeStyle=c.fillStyle='#2563eb';c.lineWidth=1*k;
-   c.beginPath();c.moveTo(...A);c.lineTo(...a);c.moveTo(...B);c.lineTo(...b);c.moveTo(...a);c.lineTo(...b);
+   const E_=extPts(d,g);c.beginPath();c.moveTo(...S(E_[0][0]));c.lineTo(...S(E_[0][1]));c.moveTo(...S(E_[1][0]));c.lineTo(...S(E_[1][1]));c.moveTo(...a);c.lineTo(...b);
    c.stroke();for(const q of[a,b]){c.beginPath();c.arc(q[0],q[1],3*k,0,7);c.fill()}
-   let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.abs(ang)>Math.PI/2)ang+=Math.PI;
+   let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.abs(ang)>Math.PI/2)ang+=Math.PI;if(Math.abs(Math.sin(ang))>.9)ang=-Math.PI/2;/* 縦寸法は常に下→上読み */
    let oy=-8*k;if(Math.abs(Math.sin(ang))>.9){const dxs=g.a.x<_bx?-1:1;oy=-dxs*8*k/Math.sin(ang)}c.save();c.translate(T[0],T[1]);c.rotate(ang);c.font=`${12*k}px sans-serif`;c.fillText(Math.round(g.L),0,oy);c.restore();
    if(ui&&(tool=='sel'||tool=='dim')){c.save();c.lineWidth=1.5;c.fillStyle='#fff';c.strokeStyle='#2563eb';const m=[a[0]+(b[0]-a[0])*.2,a[1]+(b[1]-a[1])*.2];c.beginPath();c.rect(m[0]-6,m[1]-6,12,12);c.fill();c.stroke();if(d.t=='pp'){c.strokeStyle='#16a34a';c.beginPath();c.arc(T[0],T[1],6,0,7);c.fill();c.stroke()}c.restore()}});
   D.meas.forEach(m=>{const a=S({x:m.x1,y:m.y1}),b=S({x:m.x2,y:m.y2});c.strokeStyle=c.fillStyle='#047857';c.lineWidth=1.2*k;c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();for(const q of[a,b]){c.beginPath();c.arc(q[0],q[1],3*k,0,7);c.fill()}
@@ -726,14 +775,14 @@ function draw(c,V,k,ui,pdf){
   if(ui&&sel&&SHP().includes(sel.o))overlay(c,V,sel.o);
   if(ui&&sel&&sel.op&&D.ops.includes(sel.op))opOverlay(c,sel.op);
   if(ui&&sel&&sel.wl&&D.walls.includes(sel.wl))wallOverlay(c,sel.wl);
-  if(ui&&sel&&sel.dg){c.save();c.strokeStyle='#f59e0b';c.lineWidth=5;c.globalAlpha=.6;c.lineCap='round';sel.dg.set.forEach(x=>{if(!D.dims.includes(x))return;const g=dimG(x);if(!g)return;const a=S(g.a),b=S(g.b);c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke()});c.restore();drawBtns(c,dimBtns(sel.dg))}
+  if(ui&&sel&&sel.dg){c.save();c.strokeStyle='#f59e0b';c.lineWidth=5;c.globalAlpha=.6;c.lineCap='round';sel.dg.set.forEach(x=>{if(!D.dims.includes(x))return;const g=dimG(x);if(!g)return;const a=S(g.a),b=S(g.b);c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke()});c.restore();drawBtns(c,dimBtns(sel.dg));(actDim(sel.dg)?extHandles(actDim(sel.dg)):[]).forEach(hh=>{const[hx,hy]=S(hh.pt);c.save();c.beginPath();c.arc(hx,hy,6,0,7);c.fillStyle=hh.k=='s'?'#f59e0b':'#16a34a';c.fill();c.strokeStyle='#fff';c.lineWidth=2;c.stroke();c.restore()})}
  (RC?[]:D.areas).forEach(a=>{const[x,y]=S({x:a.lx??a.x,y:a.ly??a.y});const t=a.r&&!a.r.err?[`床${a.r.floor.toFixed(2)}㎡ 天井${a.r.ceil.toFixed(2)}㎡`,`壁${a.r.wall.toFixed(2)}㎡ (H${a.h})`]:[a.r?a.r.err:''];
   c.font=`${11*k}px sans-serif`;const wd=Math.max(...t.map(s=>c.measureText(s).width))+8*k;c.fillStyle='#ffffffd9';c.fillRect(x-wd/2,y-8*k*t.length,wd,16*k*t.length);c.fillStyle='#111';t.forEach((s,i)=>c.fillText(s,x,y+(i-(t.length-1)/2)*14*k))});
- if(ui&&tool=='laser'&&LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;let a,b;if(w.kind=='part'){const q=pb(w,LZ.sd*w.t/2,LZ.sd*w.t/2);a=q[0];b=q[1]}else{[a,b]=wp(w);if(w.kind=='outer'&&LZ.seg!=null){const I=segInfo(w),g=I&&I.segs[LZ.seg];if(g){a=I.lk=='x'?{x:g.lo,y:I.face}:{x:I.face,y:g.lo};b=I.lk=='x'?{x:g.hi,y:I.face}:{x:I.face,y:g.hi}}}}
- const A_=S(a),B_=S(b),t=LZ.armed?'測定待ち…':(LZ.done?'測定 '+LZ.done.v+' mm':'');c.save();c.lineCap='round';c.globalAlpha=.85;c.strokeStyle=LZ.armed?'#f59e0b':'#16a34a';c.lineWidth=6;c.beginPath();c.moveTo(...A_);c.lineTo(...B_);c.stroke();c.globalAlpha=1;
+ if(ui&&tool=='laser'&&LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;let a,b;if(w.kind=='part'){const q=pb(w,LZ.sd*w.t/2,LZ.sd*w.t/2);a=q[0];b=q[1];if(LZ.seg!=null){const I=segInfoP(w,LZ.sd),g=I.segs[LZ.seg];if(g){a=I.pt(g.lo);b=I.pt(g.hi)}}}else{[a,b]=wp(w);if(w.kind=='outer'&&LZ.seg!=null){const I=segInfo(w),g=I&&I.segs[LZ.seg];if(g){a=I.lk=='x'?{x:g.lo,y:I.face}:{x:I.face,y:g.lo};b=I.lk=='x'?{x:g.hi,y:I.face}:{x:I.face,y:g.hi}}}}
+ const A_=S(a),B_=S(b),t=LZ.armed?'測定待ち…':(LZ.done?'測定 '+LZ.done.v+' mm':'');c.save();c.lineCap='round';c.globalAlpha=.85;c.strokeStyle=LZ.armed?'#f59e0b':'#16a34a';c.lineWidth=6;c.beginPath();c.moveTo(...A_);c.lineTo(...B_);c.stroke();c.globalAlpha=1;if(w.kind=='part'){const I=segInfoP(w,LZ.sd);if(I.segs.length>1){c.fillStyle='#2563eb';I.segs.forEach(g=>[g.lo,g.hi].forEach(r=>{const[x_,y_]=S(I.pt(r));c.beginPath();c.arc(x_,y_,4,0,7);c.fill()}))}}
  if(t){c.font='bold 13px sans-serif';c.textAlign='center';c.textBaseline='middle';const mx=(A_[0]+B_[0])/2,my=(A_[1]+B_[1])/2-18,tw_=c.measureText(t).width+12;c.fillStyle=LZ.armed?'#f59e0b':'#16a34a';c.fillRect(mx-tw_/2,my-10,tw_,20);c.fillStyle='#fff';c.fillText(t,mx,my)}c.restore()}
- if(ui&&mode=='plan'&&(ostk.length||pstk.length||(hwTool()&&otl=='erase'&&ocur))){c.save();c.lineJoin='round';c.lineCap='round';c.setLineDash([]);c.lineWidth=2.5;[[ostk,'#2563eb'],[pstk,'#dc2626']].forEach(([L_,col])=>{c.strokeStyle=col;L_.forEach(q=>{c.beginPath();q.forEach((p,i)=>i?c.lineTo(...S(p)):c.moveTo(...S(p)));c.stroke()})});if(hwTool()&&otl=='erase'&&ocur){const[ex,ey]=S(ocur);c.beginPath();c.arc(ex,ey,ER,0,7);c.fillStyle='rgba(220,38,38,.10)';c.fill();c.strokeStyle='#dc2626';c.lineWidth=1.5;c.stroke()}c.restore()}
-  if(ui){if(stk&&stk.length>1&&!stk.er){c.strokeStyle=tool=='part'?'#dc2626':'#2563eb';c.lineWidth=2;c.beginPath();stk.forEach((p,i)=>i?c.lineTo(...S(p)):c.moveTo(...S(p)));c.stroke()}
+ if(ui&&mode=='plan'&&(ostk.length||pstk.length||(hwTool()&&otl=='erase'&&ocur))){c.save();c.lineJoin='round';c.lineCap='round';c.setLineDash([]);c.lineWidth=2.5;[[ostk,PEN.o],[pstk,PEN.p]].forEach(([L_,col])=>{c.strokeStyle=col;L_.forEach(q=>{c.beginPath();q.forEach((p,i)=>i?c.lineTo(...S(p)):c.moveTo(...S(p)));c.stroke()})});if(hwTool()&&otl=='erase'&&ocur){const[ex,ey]=S(ocur);c.beginPath();c.arc(ex,ey,ER,0,7);c.fillStyle='rgba(220,38,38,.10)';c.fill();c.strokeStyle='#dc2626';c.lineWidth=1.5;c.stroke()}c.restore()}
+  if(ui){if(stk&&stk.length>1&&!stk.er){c.strokeStyle=tool=='part'?PEN.p:PEN.o;c.lineWidth=2;c.beginPath();stk.forEach((p,i)=>i?c.lineTo(...S(p)):c.moveTo(...S(p)));c.stroke()}
   if(ghost){const g=ghost,[A,B]=wp(g.w),q=S({x:A.x+(B.x-A.x)*g.t,y:A.y+(B.y-A.y)*g.t});c.fillStyle='#f59e0b';c.beginPath();c.arc(q[0],q[1],8,0,7);c.fill()}
   if(chain){let q=null,sn=0,cc=null;if(tool=='part'&&(cur||hov)){const r=chainPt(cur||hov);q=r.none?null:r.q;sn=r.snap;cc=r.c||null}
    const pts=chain.map((p,i)=>i==1&&cc?cc:p);c.strokeStyle='#2563eb';c.lineWidth=2;c.beginPath();pts.forEach((p,i)=>i?c.lineTo(...S(p)):c.moveTo(...S(p)));if(q)c.lineTo(...S(q));c.stroke();
@@ -757,16 +806,16 @@ function ask(title,fs,del,on){return new Promise(r=>{$('bt').textContent=title;c
  const els=[...f.querySelectorAll('input,select')];if(on)els.forEach((e,i)=>e.oninput=()=>on(els,i));
  $('md').style.display='flex';$('del').style.display=del?'':'none';const done=v=>{$('md').style.display='none';r(v)};
  $('ok').onclick=()=>done(els.map(e=>e.value));$('del').onclick=()=>done('del');$('ng').onclick=()=>done(null);if(els[0]&&!fs[0].sel)els[0].focus()})}
-async function wallM(w){const L=Math.round(wl(w)),pt=w.kind=='part',PSL=['LGS45','LGS65','LGS75','LGS90','LGS100','その他'],OSL=['既定に従う','PBのみ','LGS45','LGS65','LGS90','GL'],fs=[{l:'壁の長さ(mm)',v:L}];
+async function wallM(w){const L=Math.round(wl(w)),pt=w.kind=='part',PSL=['LGS45','LGS65','LGS75','LGS90','LGS100','その他'],OSL=['既定に従う','PBのみ','LGS45','LGS65','LGS90','GL','鉄骨胴縁100幅'],STL=['既定に従う','コンクリート','ALC','鉄骨'],fs=[{l:'壁の長さ(mm)',v:L}];
   if(pt)fs.push({l:'下地',v:w.sub,sel:PSL},{l:'ボード厚(両面・mm)',v:w.bd||12.5,sel:['9.5','12.5']},{l:'壁厚(mm)',v:w.t},{l:'適用',v:'この壁のみ',sel:['この壁のみ','間仕切りすべて']},{l:'寸法線',v:'そのまま',sel:['そのまま','挿入']});
-  else fs.push({l:'下地',v:w.os||'既定に従う',sel:OSL},{l:'GL: ボード内面〜躯体(mm)',v:w.gl||D.cfg.gl,sel:['20','25','30','35']},{l:'適用',v:'この壁のみ',sel:['この壁のみ','外周すべて']},{l:'寸法線',v:'そのまま',sel:['そのまま','挿入']});
-  const f=await ask(pt?'間仕切り壁':'外周壁',fs,1,pt?(e,i)=>{if((i==1||i==2)&&e[1].value!='その他')e[3].value=thk(e[1].value,+e[2].value)}:null);if(!f)return;save();
+  else fs.push({l:'躯体(外壁)',v:w.st||'既定に従う',sel:STL},{l:'下地',v:w.os||'既定に従う',sel:OSL},{l:'GL: ボード内面〜躯体(mm)',v:w.gl||D.cfg.gl,sel:['20','25','30','35']},{l:'適用',v:'この壁のみ',sel:['この壁のみ','外周すべて']},{l:'寸法線',v:'そのまま',sel:['そのまま','挿入']});
+  const f=await ask(pt?'間仕切り壁':'外周壁',fs,1,pt?(e,i)=>{if((i==1||i==2)&&e[1].value!='その他')e[3].value=thk(e[1].value,+e[2].value)}:(e,i)=>{if(i==1){const m={'コンクリート':'GL','ALC':'GL','鉄骨':'鉄骨胴縁100幅'}[e[1].value];if(m)e[2].value=m}});if(!f)return;save();
   if(f=='del'){D.walls=D.walls.filter(x=>x!=w);D.ops=D.ops.filter(o=>o.w!=w.id);D.dims=D.dims.filter(o=>o.w!=w.id)}
   else{const n=+f[0];if(n>0){const LK=linkSnap(x=>x===w);if(Math.round(n)!=L)setLen(w,n);linkFix(LK);w.fix=1}
    if(pt)D.walls.filter(x=>f[4]=='この壁のみ'?x==w:x.kind=='part').forEach(x=>{const o=f[1]=='その他';x.sub=f[1];x.bd=o?0:+f[2];x.t=o?(+f[3]||100):thk(f[1],+f[2])});
-   else D.walls.filter(x=>f[3]=='この壁のみ'?x==w:x.kind=='outer').forEach(x=>{if(f[1]=='既定に従う')delete x.os;else x.os=f[1];if(f[1]=='GL')x.gl=+f[2]})}
-    if(f!='del'&&f[pt?5:4]=='挿入')addWallDim(w);commit()}
-async function specM(){const c=D.cfg,f=await ask('既定仕様',[{l:'外周 下地',v:c.os,sel:['PBのみ','LGS45','LGS65','LGS90','GL']},{l:'GL: ボード内面〜躯体(mm)',v:c.gl,sel:['20','25','30','35']},{l:'外周 PB厚(mm)',v:c.pb,sel:['9.5','12.5']},{l:'新規間仕切り 下地',v:c.ps,sel:['LGS45','LGS65','LGS75','LGS90','LGS100']},{l:'新規間仕切り ボード厚',v:c.pbd,sel:['9.5','12.5']}]);if(!f)return;save();D.cfg={os:f[0],gl:+f[1],pb:+f[2],ps:f[3],pbd:+f[4]};commit()}
+   else D.walls.filter(x=>f[4]=='この壁のみ'?x==w:x.kind=='outer').forEach(x=>{if(f[1]=='既定に従う')delete x.st;else x.st=f[1];if(f[2]=='既定に従う')delete x.os;else x.os=f[2];if(f[2]=='GL')x.gl=+f[3]})}
+    if(f!='del'&&f[5]=='挿入')addWallDim(w);commit()}
+async function specM(){const c=D.cfg,f=await ask('既定仕様',[{l:'外壁 躯体',v:c.st||'コンクリート',sel:['コンクリート','ALC','鉄骨']},{l:'外周 下地',v:c.os,sel:['PBのみ','LGS45','LGS65','LGS90','GL','鉄骨胴縁100幅']},{l:'GL: ボード内面〜躯体(mm)',v:c.gl,sel:['20','25','30','35']},{l:'外周 PB厚(mm)',v:c.pb,sel:['9.5','12.5']},{l:'新規間仕切り 下地',v:c.ps,sel:['LGS45','LGS65','LGS75','LGS90','LGS100']},{l:'新規間仕切り ボード厚',v:c.pbd,sel:['9.5','12.5']}]);if(!f)return;save();D.cfg={st:f[0],os:f[1],gl:+f[2],pb:+f[3],ps:f[4],pbd:+f[5]};commit()}
 const SYMV={"auto1":[[0.012,1.4,0.012,-0.0],[0.012,-0.0,0.012,-1.4],[0.046,1.4,0.046,-0.0],[0.046,-0.0,0.046,-1.4],[0.465,1.4,0.465,-0.0],[0.5,1.4,0.5,-0.0],[0.535,1.4,0.535,-0.0],[0.5,1.4,0.535,1.4],[0.5,-0.0,0.535,-0.0],[0.465,1.4,0.5,1.4],[0.465,-0.0,0.5,-0.0],[0.012,1.4,0.046,1.4],[0.012,-0.0,0.046,-0.0],[0.012,-1.4,0.046,-1.4],[0.954,1.4,0.954,-0.0],[0.954,-0.0,0.954,-1.4],[0.988,1.4,0.988,-0.0],[0.988,-0.0,0.988,-1.4],[0.954,-0.0,0.988,-0.0],[0.954,-1.4,0.988,-1.4],[0.954,1.4,0.988,1.4],[0.012,-1.4,0.023,-1.4],[0.012,-0.0,0.023,-0.0],[0.005,2.0,0.02,2.0],[0.0,-2.0,0.02,-2.0],[0.003,2.0,0.003,1.4],[0.003,2.0,0.02,2.0],[0.012,2.0,0.012,-2.0],[0.977,-1.4,0.988,-1.4],[0.977,-0.0,0.988,-0.0],[0.98,2.0,0.995,2.0],[0.98,-2.0,1.0,-2.0],[0.998,2.0,0.998,1.4],[0.98,2.0,0.998,2.0],[0.988,2.0,0.988,-2.0],[0.046,0.5,0.465,0.5],[0.046,0.9,0.465,0.9],[0.535,0.9,0.954,0.9],[0.535,0.5,0.954,0.5]],"autoFix":[[0.756,-0.0,0.756,-1.4],[0.006,-1.4,0.012,-1.4],[0.006,-0.0,0.012,-0.0],[0.012,-0.0,0.012,-1.4],[0.244,1.4,0.244,-0.0],[0.244,-0.0,0.244,-1.4],[0.006,0.7,0.013,0.7],[0.026,0.7,0.039,0.7],[0.052,0.7,0.065,0.7],[0.079,0.7,0.092,0.7],[0.105,0.7,0.118,0.7],[0.131,0.7,0.145,0.7],[0.158,0.7,0.171,0.7],[0.184,0.7,0.198,0.7],[0.211,0.7,0.224,0.7],[0.237,0.7,0.244,0.7],[0.262,1.4,0.262,-0.0],[0.262,-0.0,0.262,-1.4],[0.482,1.4,0.482,-0.0],[0.5,1.4,0.5,-0.0],[0.518,1.4,0.518,-0.0],[0.5,1.4,0.518,1.4],[0.5,-0.0,0.518,-0.0],[0.482,1.4,0.5,1.4],[0.482,-0.0,0.5,-0.0],[0.244,1.4,0.262,1.4],[0.244,-0.0,0.262,-0.0],[0.244,-1.4,0.262,-1.4],[0.738,1.4,0.738,-0.0],[0.738,-0.0,0.738,-1.4],[0.756,1.4,0.756,-0.0],[0.738,-0.0,0.756,-0.0],[0.738,-1.4,0.756,-1.4],[0.738,1.4,0.756,1.4],[0.988,-1.4,0.994,-1.4],[0.988,-0.0,0.994,-0.0],[0.988,-0.0,0.988,-1.4],[0.756,0.7,0.762,0.7],[0.776,0.7,0.789,0.7],[0.802,0.7,0.815,0.7],[0.829,0.7,0.842,0.7],[0.855,0.7,0.868,0.7],[0.881,0.7,0.894,0.7],[0.908,0.7,0.921,0.7],[0.934,0.7,0.948,0.7],[0.961,0.7,0.974,0.7],[0.987,0.7,0.994,0.7],[0.003,2.0,0.011,2.0],[0.989,2.0,0.997,2.0],[0.0,-2.0,0.011,-2.0],[0.002,2.0,0.002,1.4],[0.002,2.0,0.011,2.0],[0.006,2.0,0.006,-2.0],[0.989,-2.0,1.0,-2.0],[0.998,2.0,0.998,1.4],[0.989,2.0,0.998,2.0],[0.994,2.0,0.994,-2.0],[0.012,-0.9,0.244,-0.9],[0.012,-0.5,0.244,-0.5],[0.262,0.5,0.482,0.5],[0.262,0.9,0.482,0.9],[0.518,0.9,0.738,0.9],[0.518,0.5,0.738,0.5],[0.756,-0.5,0.988,-0.5],[0.756,-0.9,0.988,-0.9]],"fix":[[0.045,1.3,0.065,1.3],[0.045,-0.1,0.065,-0.1],[0.065,1.3,0.065,-0.1],[0.02,-2.0,0.045,-2.0],[0.0,1.7,0.016,1.7],[0.016,-1.4,0.016,-2.0],[0.016,-2.0,0.045,-2.0],[0.045,2.0,0.045,-2.0],[0.935,1.3,0.955,1.3],[0.935,-0.1,0.955,-0.1],[0.935,1.3,0.935,-0.1],[0.955,-2.0,0.98,-2.0],[0.984,1.7,1.0,1.7],[0.984,-1.4,0.984,-2.0],[0.955,-2.0,0.984,-2.0],[0.955,2.0,0.955,-2.0],[0.016,2.0,0.045,2.0],[0.955,2.0,0.984,2.0],[0.065,0.8,0.935,0.8],[0.065,0.4,0.935,0.4]],"hikichigai":[[0.013,-1.4,0.025,-1.4],[0.013,0.0,0.025,0.0],[0.025,0.0,0.025,-1.4],[0.494,1.4,0.494,0.0],[0.494,0.0,0.494,-1.4],[0.531,1.4,0.531,0.0],[0.531,0.0,0.531,-1.4],[0.494,1.4,0.531,1.4],[0.494,0.0,0.531,0.0],[0.494,-1.4,0.531,-1.4],[0.006,2.0,0.022,2.0],[0.022,-2.0,0.0,-2.0],[0.003,2.0,0.003,1.4],[0.022,2.0,0.003,2.0],[0.013,2.0,0.013,-2.0],[0.994,2.0,0.978,2.0],[0.978,-2.0,1.0,-2.0],[0.997,2.0,0.997,1.4],[0.978,2.0,0.997,2.0],[0.988,2.0,0.988,-2.0],[0.975,0.0,0.988,0.0],[0.975,1.4,0.988,1.4],[0.975,1.4,0.975,0.0],[0.531,0.5,0.975,0.5],[0.531,1.0,0.975,1.0],[0.025,-1.0,0.494,-1.0],[0.025,-0.5,0.494,-0.5]],"w_hik2":[[0.013,-0.1,0.508,-0.1],[0.013,-1.9,0.508,-1.9],[0.013,-0.1,0.013,-1.9],[0.016,-2.1,0.016,-4.3],[0.0,-4.4,0.014,-4.4],[0.0,4.4,0.0,-4.4],[0.0,4.4,0.014,4.4],[0.016,4.3,0.016,0.1],[0.012,0.1,0.012,-2.1],[0.987,1.9,0.987,0.1],[0.985,4.3,0.985,2.1],[0.986,4.4,1.0,4.4],[1.0,4.4,1.0,-4.4],[0.986,-4.4,1.0,-4.4],[0.985,-0.1,0.985,-4.3],[0.988,2.1,0.988,-0.1],[0.508,-0.1,0.508,-1.9],[0.492,1.9,0.987,1.9],[0.492,0.1,0.987,0.1],[0.492,1.9,0.492,0.1],[0.016,-4.2,0.985,-4.2],[0.016,4.2,0.985,4.2]],"w_hik3":[[0.008,-0.9,0.008,-3.1],[0.992,3.2,0.992,0.9],[0.009,-1.2,0.367,-1.2],[0.009,-1.2,0.009,-2.9],[0.009,-2.9,0.367,-2.9],[0.321,0.9,0.679,0.9],[0.321,0.9,0.321,-0.8],[0.321,-0.8,0.679,-0.8],[0.679,0.9,0.679,-0.8],[0.99,-1.2,0.99,-2.9],[0.329,-1.2,0.34,-1.2],[0.011,-0.9,0.011,4.3],[0.0,4.4,0.01,4.4],[0.0,4.4,0.0,-4.4],[0.0,-4.4,0.01,-4.4],[0.011,-3.1,0.011,-4.3],[0.99,0.9,0.99,-4.3],[0.99,-4.4,1.0,-4.4],[1.0,4.4,1.0,-4.4],[0.99,4.4,1.0,4.4],[0.99,4.3,0.99,3.2],[0.367,-1.2,0.367,-2.9],[0.329,-1.1,0.34,-1.1],[0.633,2.9,0.991,2.9],[0.991,2.9,0.991,1.2],[0.633,1.2,0.991,1.2],[0.633,2.9,0.633,1.2],[0.011,-4.2,0.99,-4.2],[0.011,4.2,0.99,4.2]],"w_hikomi":[[0.988,0.1,0.988,-2.2],[0.985,0.8,0.985,0.1],[0.985,0.8,1.0,0.8],[1.0,0.8,1.0,-4.4],[0.986,-4.4,1.0,-4.4],[0.985,-2.2,0.985,-4.3],[0.5,0.3,0.5,-0.2],[0.499,0.3,0.499,-0.2],[0.498,-0.2,0.499,0.3],[0.5,0.3,0.499,-0.2],[0.501,0.3,0.501,-0.2],[0.501,0.3,0.501,-0.2],[0.501,0.3,0.501,-0.2],[0.5,0.3,0.501,-0.2],[0.502,-0.2,0.501,0.3],[0.502,0.3,0.508,0.3],[0.508,4.4,0.508,0.3],[0.493,4.4,0.508,4.4],[0.492,4.3,0.492,0.3],[0.492,0.3,0.498,0.3],[0.016,-2.2,0.016,-4.3],[0.0,-4.4,0.014,-4.4],[0.0,4.4,0.0,-4.4],[0.0,4.4,0.014,4.4],[0.016,4.3,0.016,0.1],[0.012,0.1,0.012,-2.2],[0.508,3.0,0.508,1.5],[0.508,0.8,0.985,0.8],[0.508,1.5,1.0,1.5],[0.484,-0.2,0.484,-1.9],[0.484,-1.9,0.98,-1.9],[0.484,-0.2,0.98,-0.2],[0.98,-0.2,0.98,-1.9],[0.98,-0.3,0.985,-0.3],[0.98,-1.8,0.985,-1.8],[0.988,-0.5,0.988,-1.5],[0.016,-4.2,0.985,-4.2],[0.016,4.2,0.492,4.2]],"w_hikomi2":[[0.321,0.8,0.321,-0.8],[0.367,-1.2,0.367,-2.9],[0.329,-1.1,0.34,-1.1],[0.329,-1.2,0.34,-1.2],[0.008,-0.9,0.008,-3.2],[0.992,1.1,0.992,-3.2],[0.321,-0.8,0.679,-0.8],[0.679,0.8,0.679,-0.8],[0.321,0.8,0.679,0.8],[0.367,-1.2,0.009,-1.2],[0.009,-1.2,0.009,-2.9],[0.011,-0.9,0.011,4.3],[0.0,4.4,0.01,4.4],[0.0,4.4,0.0,-4.4],[0.0,-4.4,0.01,-4.4],[0.011,-3.2,0.011,-4.3],[0.99,1.1,0.99,1.7],[0.99,1.7,1.0,1.7],[0.991,-4.4,1.0,-4.4],[0.99,-3.2,0.99,-4.3],[0.634,4.4,0.644,4.4],[0.633,4.3,0.633,1.3],[0.633,1.3,0.637,1.3],[0.64,1.3,0.644,1.3],[0.644,4.4,0.644,1.3],[0.638,1.3,0.638,0.8],[0.367,-2.9,0.009,-2.9],[1.0,1.7,1.0,-4.4],[0.011,-4.3,0.99,-4.3],[0.011,4.2,0.633,4.2],[0.644,1.7,0.99,1.7]],"w_cl2":[[0.469,-0.8,0.494,-0.8],[0.455,-0.7,0.494,-0.7],[0.506,-0.7,0.545,-0.7],[0.455,-0.5,0.545,-0.5],[0.047,-1.0,0.065,-1.0],[0.046,-0.7,0.046,-1.3],[0.067,-0.7,0.067,-1.3],[0.046,-1.3,0.067,-1.3],[0.935,-1.0,0.953,-1.0],[0.934,-0.7,0.934,-1.3],[0.954,-0.7,0.954,-1.3],[0.934,-1.3,0.954,-1.3],[0.0,-2.2,0.019,-2.2],[0.0,2.2,0.0,-2.2],[0.0,2.2,0.025,2.2],[0.019,1.9,0.019,-2.2],[0.981,-2.2,1.0,-2.2],[1.0,2.2,1.0,-2.2],[0.975,2.2,1.0,2.2],[0.981,1.9,0.981,-2.2],[0.067,-0.7,0.085,-0.7],[0.028,-0.5,0.085,-0.5],[0.028,-0.7,0.067,-0.7],[0.954,-0.7,0.973,-0.7],[0.916,-0.5,0.973,-0.5],[0.916,-0.7,0.954,-0.7],[0.022,0.2,0.03,0.9],[0.03,0.9,0.493,0.9],[0.493,0.9,0.5,0.2],[0.5,0.2,0.5,-0.5],[0.022,-0.5,0.5,-0.5],[0.022,0.2,0.022,-0.5],[0.978,0.2,0.971,0.9],[0.508,0.9,0.971,0.9],[0.508,0.9,0.5,0.2],[0.5,-0.5,0.978,-0.5],[0.978,0.2,0.978,-0.5],[0.019,-2.2,0.981,-2.2],[0.027,1.9,0.974,1.9]],"w_cl4":[[0.0,-2.9,0.018,-2.9],[0.0,1.5,0.0,-2.9],[0.0,1.5,0.023,1.5],[0.018,1.1,0.018,-2.9],[0.148,0.1,0.027,-1.8],[0.027,-1.8,0.024,-1.0],[0.024,-1.0,0.027,-0.3],[0.027,-0.3,0.141,1.5],[0.141,1.5,0.279,3.7],[0.279,3.7,0.289,3.1],[0.289,3.1,0.292,2.3],[0.292,2.3,0.148,0.1],[0.067,-1.7,0.051,-1.9],[0.049,-1.6,0.051,-2.2],[0.07,-2.0,0.067,-1.3],[0.07,-2.0,0.051,-2.2],[0.04,-1.6,0.073,-1.1],[0.073,-1.1,0.069,-0.1],[0.069,-0.1,0.036,-0.7],[0.036,-0.7,0.04,-1.6],[0.067,-1.3,0.083,-1.1],[0.083,-1.0,0.031,-1.7],[0.032,-1.9,0.067,-1.3],[0.289,2.0,0.265,1.6],[0.436,0.1,0.558,-1.8],[0.558,-1.8,0.561,-1.0],[0.561,-1.0,0.558,-0.3],[0.558,-0.3,0.442,1.5],[0.442,1.5,0.305,3.7],[0.292,2.3,0.436,0.1],[0.296,2.2,0.332,1.6],[0.516,-1.7,0.533,-1.9],[0.536,-1.6,0.533,-2.2],[0.514,-2.0,0.518,-1.3],[0.514,-2.0,0.533,-2.2],[0.543,-1.6,0.51,-1.1],[0.51,-1.1,0.515,-0.1],[0.515,-0.1,0.548,-0.7],[0.548,-0.7,0.543,-1.6],[0.518,-1.3,0.501,-1.1],[0.502,-1.0,0.553,-1.7],[0.552,-1.9,0.518,-1.3],[0.305,3.7,0.296,3.1],[0.292,2.3,0.296,3.1],[0.253,1.6,0.287,2.2],[1.0,1.5,0.863,3.7],[0.863,3.7,0.853,3.1],[0.853,3.1,0.85,2.3],[0.85,2.3,0.993,0.1],[0.853,2.0,0.876,1.6],[0.705,0.1,0.584,-1.8],[0.584,-1.8,0.58,-1.0],[0.58,-1.0,0.585,-0.3],[0.585,-0.3,0.699,1.5],[0.699,1.5,0.836,3.7],[0.85,2.3,0.705,0.1],[0.845,2.2,0.81,1.6],[0.625,-1.7,0.608,-1.9],[0.605,-1.6,0.608,-2.2],[0.627,-2.0,0.624,-1.3],[0.627,-2.0,0.608,-2.2],[0.598,-1.6,0.631,-1.1],[0.631,-1.1,0.626,-0.1],[0.626,-0.1,0.593,-0.7],[0.593,-0.7,0.598,-1.6],[0.624,-1.3,0.64,-1.1],[0.639,-1.0,0.589,-1.7],[0.59,-1.9,0.624,-1.3],[0.836,3.7,0.845,3.1],[0.85,2.3,0.845,3.1],[0.889,1.6,0.855,2.2]]};
 function symV(o){const c=o.cat,k=o.k,M={'アルミドア':{'自動ドア':'auto1','自動ドア両袖Fix':'autoFix','FIX':'fix','引違い':'hikichigai'},'アルミサッシ':{'腰窓 引違い':'hikichigai','掃出し窓':'hikichigai','腰窓 FIX':'fix','FIX窓':'fix'},'木製建具':{'引違い':'w_hik2','3枚引違い':'w_hik3','片引き':'w_hikomi','2枚引込み':'w_hikomi2','クローゼット2枚扉':'w_cl2','クローゼット4枚扉':'w_cl4'}}[c];return M&&M[k]?SYMV[M[k]]:null}
 function symL(o){const w=o.wd,k=o.k,L=[];if(o.cat=='追加建具'&&LIB.op[k])return LIB.op[k].L.map(l=>l.map(v=>v*w));if(/^開口/.test(k)){const _w=wid(o.w),h=_w?(_w.kind=='part'?_w.t/2:75):75;return[[0,-h,0,h],[w,-h,w,h]]}const sv=symV(o);if(sv)return sv.map(l=>[l[0]*w,l[1]*8,l[2]*w,l[3]*8]);const H=(a,b,c,d)=>L.push([a,b,c,d]),Rc=(a,b,c,d)=>{H(a,b,c,b);H(c,b,c,d);H(c,d,a,d);H(a,d,a,b)},pn=n=>{const pl=w/n+60;for(let i=0;i<n;i++){const x=n>1?i*(w-pl)/(n-1):0,y=n>1?(i%2?1:-1)*25:0;Rc(x,y-12,x+pl,y+12)}};
@@ -799,7 +848,7 @@ function dim2Tap(p){if(!dm){const i=ptIdx(p);if(i>=0){dm={p:i};ui();render()}ret
  const tmp={p:dm.p,q:dm.q,ax:dm.ax};save();addPP(dm.p,dm.q,dm.ax,snapDim(tmp,dm.ax=='x'?p.y:p.x,false));dm=null;ui();commit()}
 function ring(){const os=D.walls.filter(w=>w.kind=='outer'&&!w.on);if(!os.length)return null;const r=[os[0]];let g=0;while(g++<999){const c=r.at(-1),n=os.find(x=>x!==c&&x.a==c.b);if(!n||n===r[0])break;r.push(n)}return r.length==os.length?r:null}
 async function batchDim(){prepOut();const os=D.walls.filter(w=>w.kind=='outer');if(!os.length){alert('外周壁がありません');return}
- const ex=D.dims.some(d=>d.b),fs=[{l:'壁からの距離(mm)',v:1200},{l:'段付き面の全体寸法',v:'表示する',sel:['表示する','表示しない']},{l:'間仕切り壁の寸法',v:'表示する',sel:['表示する','表示しない']}];if(ex)fs.push({l:'既存の一括寸法',v:'置き換える',sel:['置き換える','残す']});const f=await ask('外周一括寸法',fs);if(!f)return;const off=+f[0]||1200;save();if(ex&&f[3]=='置き換える')D.dims=D.dims.filter(x=>!x.b);const bid=D.n++,tg=d=>{if(d)d.b=bid;return d};
+ const ex=D.dims.some(d=>d.b),fs=[{l:'壁からの距離(mm)',v:1200},{l:'段付き面の全体寸法',v:'表示する',sel:['表示する','表示しない']},{l:'間仕切り壁の寸法',v:'表示する',sel:['表示する','表示しない']},{l:'間仕切り間の寸法(外周沿い・芯々)',v:'表示する',sel:['表示する','表示しない']},{l:'　└ 外周壁からの距離(mm)',v:600},{l:'通り寸法(全交点間・壁の交点ごと)',v:'上・左',sel:['上・左','下・右','4方向','表示しない']},{l:'　└ 外形からの距離(mm)',v:600},{l:'間仕切り間の合計寸法(最初〜最後の間仕切り)',v:'表示する',sel:['表示する','表示しない']}];if(ex)fs.push({l:'既存の一括寸法',v:'置き換える',sel:['置き換える','残す']});const f=await ask('外周一括寸法',fs);if(!f)return;const off=+f[0]||1200;save();if(ex&&f[8]=='置き換える')D.dims=D.dims.filter(x=>!x.b);const bid=D.n++,tg=d=>{if(d)d.b=bid;return d};
  const rg=ring(),runs=[],inRun=new Map(),kx=w=>wa(w)==0?1:0,key=w=>wa(w)+':'+Math.sign(ON.get(w)[kx(w)]),used=new Set();
  if(rg){const n=rg.length;for(let i=0;i<n;i++){const w=rg[i];if(used.has(w))continue;let s=i,g=0;
   while(g++<n){const j=(s-2+n)%n,jg=rg[(s-1+n)%n];if(j!=s&&wa(jg)!=wa(w)&&key(rg[j])==key(w)&&!used.has(rg[j])&&rg[j]!==w)s=j;else break}
@@ -807,6 +856,15 @@ async function batchDim(){prepOut();const os=D.walls.filter(w=>w.kind=='outer');
   run.forEach(x=>used.add(x));if(run.length>1){runs.push(run);run.forEach(x=>inRun.set(x,run))}}}
  const perp=w=>wa(w)==0?D.pts[w.a].y:D.pts[w.a].x,sgn=w=>ON.get(w)[kx(w)]>0?1:-1,base=w=>{const r=inRun.get(w);if(!r)return perp(w);const v=r.map(perp);return sgn(w)>0?Math.max(...v):Math.min(...v)};
  os.forEach(w=>tg(addPP(w.a,w.b,wa(w)==0?'x':'y',base(w)+sgn(w)*off,1)));
+ if(f[5]!='表示しない'){const so=+f[6]||600,xs_=D.pts.map(q=>q.x),ys_=D.pts.map(q=>q.y),x0=Math.min(...xs_),x1=Math.max(...xs_),y0=Math.min(...ys_),y1=Math.max(...ys_),XS=[],YS=[],
+  cl=a=>{a.sort((p,q)=>p.v-q.v);const r=[];a.forEach(e=>{if(!r.length||e.v-r.at(-1).v>60)r.push(e)});return r};
+  D.walls.forEach(w=>{const A=D.pts[w.a],B=D.pts[w.b];if(w.kind=='outer'||wa(w)==1)XS.push({i:w.a,v:A.x},{i:w.b,v:B.x});if(w.kind=='outer'||wa(w)==0)YS.push({i:w.a,v:A.y},{i:w.b,v:B.y})});
+  const H=cl(XS),Vv=cl(YS),tp=f[5]=='上・左'||f[5]=='4方向',bt=f[5]=='下・右'||f[5]=='4方向';
+  for(let k=0;H.length>2&&k<H.length-1;k++){if(tp)tg(addPP(H[k].i,H[k+1].i,'x',y0-so,1));if(bt)tg(addPP(H[k].i,H[k+1].i,'x',y1+so,1))}
+  for(let k=0;Vv.length>2&&k<Vv.length-1;k++){if(tp)tg(addPP(Vv[k].i,Vv[k+1].i,'y',x0-so,1));if(bt)tg(addPP(Vv[k].i,Vv[k+1].i,'y',x1+so,1))}}
+ if(f[3]=='表示する'){const co=+f[4]||600;os.forEach(w=>{const ax=wa(w)==0?'x':'y',pk=ax=='x'?'y':'x',c=D.pts[w.a][pk],rg_=[D.pts[w.a][ax],D.pts[w.b][ax]],lo=Math.min(...rg_),hi=Math.max(...rg_),tol=OD(w)[2]+4,L_=[{i:w.a,v:D.pts[w.a][ax]},{i:w.b,v:D.pts[w.b][ax]}];
+  D.walls.forEach(q=>{if(q.kind!='part'||wa(q)==wa(w))return;[q.a,q.b].forEach(pi=>{const P=D.pts[pi];if(Math.abs(P[pk]-c)<=tol&&P[ax]>lo+1&&P[ax]<hi-1&&!L_.some(e=>Math.abs(e.v-P[ax])<1))L_.push({i:pi,v:P[ax]})})});
+  if(L_.length<3)return;L_.sort((a,b)=>a.v-b.v);for(let k=0;k<L_.length-1;k++)tg(addPP(L_[k].i,L_[k+1].i,ax,c+sgn(w)*co,1));if(f[7]=='表示する'){const I_=L_.slice(1,-1);if(I_.length>=3)tg(addPP(I_[0].i,I_.at(-1).i,ax,c+sgn(w)*(co+600),1))}})}
  if(f[1]=='表示する')runs.forEach(r=>{const w=r[0],ax=wa(w)==0?'x':'y',ids=[...new Set(r.flatMap(x=>[x.a,x.b]))],cv=i=>ax=='x'?D.pts[i].x:D.pts[i].y,mn=ids.reduce((a,b)=>cv(b)<cv(a)?b:a),mx=ids.reduce((a,b)=>cv(b)>cv(a)?b:a);tg(addPP(mn,mx,ax,base(w)+sgn(w)*(off+1200),1))});
  if(f[2]=='表示する')D.walls.filter(w=>w.kind=='part').forEach(w=>tg(addWallDim(w)));
  commit()}
@@ -829,10 +887,11 @@ async function frameM(k){
  if(k=='notes'){const n=meta.notes||[],f=await ask('特記事項(最大5行)',[0,1,2,3,4].map(i=>({l:(i+1)+'行目',v:n[i]||'',s:1,type:'text'})));if(!f)return;meta.notes=f.map(t=>t.trim());commit();return}
  if(/^st\d$/.test(k)){const i=+k[2],nm=['承認','設計','担当','製図'][i],f=await ask(nm+' 押印(氏名を入力)',[{l:'氏名(印影に使用)',v:(meta.stamps||[])[i]||'',s:1,type:'text'}],1);if(!f)return;const a=(meta.stamps||[]).slice();while(a.length<4)a.push('');a[i]=f=='del'?'':f[0].trim();meta.stamps=a;commit()}}
 /* ---- 寸法の選択(個別/列/一括)・編集・一括削除 ---- */
-const rowOf=d=>d.t=='pp'?D.dims.filter(x=>x.t=='pp'&&x.ax==d.ax&&Math.abs(x.pos-d.pos)<1):[d];
+const rowOf=d=>d.t=='pp'?D.dims.filter(x=>x.t=='pp'&&x.ax==d.ax&&Math.abs(x.pos-d.pos)<3):[d];
 function dimBtns(dg){const set=dg.set.filter(x=>D.dims.includes(x)),a=D.dims.includes(dg.a)?dg.a:set[0];if(!a)return[];const g=dimG(a);if(!g)return[];
- const L=[];if(set.length==1&&a.t=='pp'&&g.w)L.push({id:'edit',t:'寸法値',w:60});
+ const L=[];if(set.length==1&&a.t=='pp')L.push({id:'edit',t:'寸法値',w:60});
  if(a.t=='pp'&&dg.k!='row')L.push({id:'row',t:'この列',w:60});
+ if(a.t=='pp'&&rowOf(a).length>=2)L.push({id:'tot',t:'合計寸法',w:72});
  if(dg.k!='all')L.push({id:'all',t:'一括選択',w:72});
  if(set.length>1)L.push({id:'one',t:'個別',w:48});
  L.push({id:'del',t:set.length>1?'削除('+set.length+')':'削除',w:set.length>1?80:48});
@@ -840,12 +899,63 @@ function dimBtns(dg){const set=dg.set.filter(x=>D.dims.includes(x)),a=D.dims.inc
  return L.map(b=>{const r={...b,h:30,x:x+b.w/2,y};x+=b.w+6;return r})}
 function dimAct(id){const dg=sel.dg,set=dg.set.filter(x=>D.dims.includes(x)),a=D.dims.includes(dg.a)?dg.a:set[0];if(!a){sel=null;render();return}
  if(id=='edit'){dimEdit(a);return}
+ if(id=='tot'){const r=rowOf(a),ids=[...new Set(r.flatMap(x=>[x.p,x.q]))],k=a.ax,pk=k=='x'?'y':'x',cv=i=>D.pts[i][k],mn=ids.reduce((u,v)=>cv(v)<cv(u)?v:u),mx=ids.reduce((u,v)=>cv(v)>cv(u)?v:u);
+  const cen=D.pts.length?D.pts.reduce((s,q)=>s+q[pk],0)/D.pts.length:0,sg=Math.sign(a.pos-cen)||Math.sign(a.pos-D.pts[a.p][pk])||-1,np=a.pos+sg*600;
+  if(mn==mx){alert('合計寸法にできる区間がありません');return}
+  if(D.dims.some(x=>x.t=='pp'&&x.ax==k&&Math.abs(x.pos-np)<3&&((x.p==mn&&x.q==mx)||(x.p==mx&&x.q==mn)))){alert('この列の合計寸法はすでにあります');return}
+  save();const nd=addPP(mn,mx,k,np,0);if(nd)sel={dg:{set:[nd],a:nd,k:'one'}};commit();return}
  if(id=='row')sel={dg:{set:rowOf(a),a,k:'row'}};
  else if(id=='all')sel={dg:{set:D.dims.filter(x=>x.b==a.b),a,k:'all'}};
  else if(id=='one')sel={dg:{set:[a],a,k:'one'}};
  else if(id=='del'){if(set.length>1&&!confirm(set.length+'本の寸法を削除しますか?'))return;save();D.dims=D.dims.filter(x=>!set.includes(x));sel=null;commit();return}
  render()}
-async function dimEdit(o){const g=dimG(o);if(!g)return;if(o.t=='pp'&&g.w){const f=await ask('寸法線',[{l:'寸法値(mm)',v:Math.round(g.L)}],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}else if(f&&+f[0]>0){save();if(Math.round(+f[0])!=Math.round(g.L))setLen(g.w,+f[0]);g.w.fix=1}}else{const f=await ask('寸法線',[],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}}commit()}
+let dmode='seg';
+/* 寸法線ツール: タップした壁の、十字・T字・コーナー等の交点どうしの区間を求める */
+function segDimPick(w,p){const ax=wa(w)==0?'x':'y',pk=ax=='x'?'y':'x',A=D.pts[w.a],B=D.pts[w.b],lo=Math.min(A[ax],B[ax]),hi=Math.max(A[ax],B[ax]),c=A[pk],tol=(w.kind=='outer'?OD(w)[2]:w.t/2)+4,L=[{i:w.a,v:A[ax]},{i:w.b,v:B[ax]}];
+ D.walls.forEach(o=>{if(o===w||wa(o)==wa(w))return;const P=D.pts[o.a],Q=D.pts[o.b],v=P[ax];if(v<lo-1||v>hi+1)return;if(c<Math.min(P[pk],Q[pk])-tol||c>Math.max(P[pk],Q[pk])+tol)return;L.push({i:o.a,v})});
+ L.sort((a,b)=>a.v-b.v);const r=[];L.forEach(e=>{if(!r.length||e.v-r.at(-1).v>1)r.push(e)});if(r.length<2)return null;
+ const t=p[ax];let k=r.length-2;for(let i=0;i<r.length-1;i++)if(t<=r[i+1].v){k=i;break}
+ return{ax,i:r[k].i,j:r[k+1].i,pos:c+(Math.sign(p[pk]-c)||-1)*600}}
+/* 寸法引出線(寸法線の両端の線)の伸縮: s=起点側を短縮(mm) / o=寸法線を越えて延長(mm) */
+/* 引出線の自動短縮: 起点Pが内部(間仕切り交点など)にあるとき、寸法線側へ向かう線が壁(外壁・間仕切り)を横切るなら、
+   始点を「寸法線に一番近い壁」の寸法線側の面まで進める(室内を横断して長く伸びるのを防ぐ)。
+   手動で伸縮した引出線(d.s1/d.s2 に数値あり)は自動短縮より優先 */
+function extTrim(P,a,L){const dx=a.x-P.x,dy=a.y-P.y,hx=Math.abs(dx)>=Math.abs(dy),e=hx?'x':'y',pk=hx?'y':'x',dir=Math.sign(hx?dx:dy),wax=hx?1:0;let best=0;
+ D.walls.forEach(w=>{if(wa(w)!=wax)return;const A=D.pts[w.a],B=D.pts[w.b];if(!A||!B)return;
+  if(Math.hypot(A.x-P.x,A.y-P.y)<1||Math.hypot(B.x-P.x,B.y-P.y)<1)return;
+  const lo=Math.min(A[pk],B[pk]),hi=Math.max(A[pk],B[pk]);if(P[pk]<lo-1||P[pk]>hi+1)return;
+  const rel=dir*(A[e]-P[e]);if(rel<=1||rel>=L)return;
+  let f;if(w.kind=='outer'){const n=ON.get(w);if(!n)return;f=n[hx?0:1]*dir>0?OD(w)[2]:0}else f=(w.t||0)/2;
+  const s=rel+f;if(s<L-1&&s>best)best=s});
+ return best}
+function extPts(d,g){return[[g.A,g.a,d.s1,d.o1||0],[g.B,g.b,d.s2,d.o2||0]].map(([P,a,s,o])=>{const dx=a.x-P.x,dy=a.y-P.y,L=Math.hypot(dx,dy);if(L<1)return[P,a];const ux=dx/L,uy=dy/L,ss=Math.min(s!=null?s:extTrim(P,a,L),L-1);return[{x:P.x+ux*ss,y:P.y+uy*ss},{x:a.x+ux*o,y:a.y+uy*o}]})}
+function extHandles(d){const g=dimG(d);if(!g)return[];const E=extPts(d,g);return[{j:0,k:'s',pt:E[0][0]},{j:0,k:'o',pt:E[0][1]},{j:1,k:'s',pt:E[1][0]},{j:1,k:'o',pt:E[1][1]}]}
+function extKey(j,k){return(k=='s'?'s':'o')+(j?2:1)}
+function extSet(o,j,k,val){const set=(x,jj,v)=>{const kk=extKey(jj,k);if(v==null){if(k=='s')delete x[kk];else x[kk]=0}else x[kk]=v};set(o,j,val);
+ if(o.t!='pp')return;const pt=j?o.q:o.p,P=D.pts[pt];if(!P)return;const ax=o.ax,pk=ax=='x'?'y':'x',dir=Math.sign(o.pos-P[pk])||-1;
+ /* 起点側の短縮: 同じ線上(座標が一致)で同じ向きに出ている全ての引出線へ反映。点が別でも重なって見える線を揃える */
+ const Sabs=val==null?null:P[pk]+dir*val;
+ D.dims.forEach(x=>{if(x===o||x.t!='pp'||x.ax!=ax)return;
+  [[0,x.p],[1,x.q]].forEach(([e,ix])=>{const Q=D.pts[ix];if(!Q)return;
+   if(k=='o'){if(ix==pt&&Math.abs(x.pos-o.pos)<3)set(x,e,val);return}
+   if(Math.abs(Q[ax]-P[ax])>=1||(Math.sign(x.pos-Q[pk])||-1)!=dir)return;
+   if(val==null){set(x,e,null);return}
+   const g=dimG(x);if(!g)return;const E=e?g.b:g.a,L=Math.hypot(E.x-Q.x,E.y-Q.y),v=dir*(Sabs-Q[pk]);
+   if(v<=0)return;set(x,e,Math.max(0,Math.min(L-1,v)))})})}
+function actDim(dg){return dg?(D.dims.includes(dg.a)?dg.a:dg.set.find(x=>D.dims.includes(x))||null):null}
+function extPick(p,th){if(mode!='plan'||!sel||!sel.dg)return null;const d0=actDim(sel.dg);if(!d0)return null;
+ const hs=extHandles(d0).map(h=>({h,dist:Math.hypot(h.pt.x-p.x,h.pt.y-p.y)})).filter(x=>x.dist<th*1.6).sort((u,v)=>u.dist-v.dist);if(!hs.length)return null;
+ const h=hs[0].h,amb=hs.length>1&&hs[1].h.j==h.j&&hs[1].dist-hs[0].dist<th*.6;return{t:'ext',o:d0,j:h.j,k:amb?null:h.k}}
+function extDrag(dr,p){const o=dr.o,g=dimG(o);if(!g)return;const P=dr.j?g.B:g.A,a=dr.j?g.b:g.a,dx=a.x-P.x,dy=a.y-P.y,L=Math.hypot(dx,dy);if(L<1)return;const ux=dx/L,uy=dy/L;
+ if(!dr.k){dr.k=((p.x-a.x)*ux+(p.y-a.y)*uy)>0?'o':'s'}
+ if(dr.k=='s'){const v=(p.x-P.x)*ux+(p.y-P.y)*uy;extSet(o,dr.j,'s',Math.max(0,Math.min(L-1,Math.round(v/5)*5)))}
+ else{const v=(p.x-a.x)*ux+(p.y-a.y)*uy;extSet(o,dr.j,'o',Math.max(0,Math.round(v/5)*5))}render()}
+function ppSet(o,val){const k=o.ax,P=D.pts[o.p],Q=D.pts[o.q],hi=Q[k]>=P[k]?o.q:o.p,d=val-Math.abs(Q[k]-P[k]);if(Math.abs(d)<.5)return;
+ const LK=linkSnap(),snap=opsSnap({W:D.walls.map(w=>({w}))}),ws=D.walls.filter(w=>w.a==hi||w.b==hi),outer=ws.some(w=>w.kind=='outer'),perp=ws.filter(w=>w.kind=='part'&&wa(w)==(k=='x'?1:0));
+ if(!outer&&perp.length)slideSet(perp[0]).forEach(m=>{m.pt[k]+=d});else{const cut=D.pts[hi][k];D.pts.forEach(q=>{if(q[k]>=cut-.5)q[k]+=d})}
+ opsFix(snap);linkFix(LK)}
+async function dimEdit(o){const g=dimG(o);if(!g)return;if(o.t=='pp'&&!g.w){const f=await ask('寸法線(交点間)',[{l:'寸法値(mm) ※右/下側の壁を動かして合わせます',v:Math.round(g.L)}],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}else if(f&&+f[0]>0){save();ppSet(o,+f[0])}commit();return}
+ if(o.t=='pp'&&g.w){const f=await ask('寸法線',[{l:'寸法値(mm)',v:Math.round(g.L)}],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}else if(f&&+f[0]>0){save();if(Math.round(+f[0])!=Math.round(g.L))setLen(g.w,+f[0]);g.w.fix=1}}else{const f=await ask('寸法線',[],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}}commit()}
 function batchDel(){const n=D.dims.filter(x=>x.b).length;if(!n){alert('一括寸法で作成した寸法はありません');return}if(!confirm('一括寸法 '+n+'本を全て削除しますか?'))return;save();D.dims=D.dims.filter(x=>!x.b);sel=null;commit()}
 /* ---- 図形挿入中の図形選択(右クリック / iPad長押し) ---- */
 function shapePick(p,th){
@@ -908,7 +1018,7 @@ async function dxf(){
  le=(l,q)=>{ln(l,q[0],q[1]);ln(l,q[3],q[2])},
  tx=(l,x,y,h,t,rot,al)=>{if(md==0&&al){const r_=(rot||0)*Math.PI/180,w_=[...String(t)].reduce((q,c_)=>q+(c_.charCodeAt(0)<128?.55:1)*h*.9,0),sh=al==1?w_/2:w_;x-=Math.cos(r_)*sh;y+=Math.sin(r_)*sh;if(al==1){x+=Math.sin(r_)*h/2;y+=Math.cos(r_)*h/2}al=0}e+=`0\nTEXT\n8\n${l}\n10\n${f(x)}\n20\n${f(YO-y)}\n30\n0\n40\n${f(h)}\n1\n${u(t)}\n50\n${f(rot||0)}\n`+(al==1?`72\n1\n11\n${f(x)}\n21\n${f(YO-y)}\n31\n0\n73\n2\n`:al==2?`72\n2\n11\n${f(x)}\n21\n${f(YO-y)}\n31\n0\n`:'')},
  ar=(l,c,rr,s,en,ccw)=>{if(ccw)[s,en]=[en,s];e+=`0\nARC\n8\n${l}\n10\n${f(c.x)}\n20\n${f(YO-c.y)}\n30\n0\n40\n${f(rr)}\n50\n${dg2(-en)}\n51\n${dg2(-s)}\n`},
- lab=(l,a,b,t,tm,bx)=>{let an=Math.atan2(-(b.y-a.y),b.x-a.x);if(Math.abs(an)>Math.PI/2)an+=Math.PI;let sx=-Math.sin(an)*(DH/2+SC),sy=-Math.cos(an)*(DH/2+SC);if(bx!=null&&Math.abs(Math.sin(an))>.9){const want=a.x<bx?-1:1;if(Math.sign(sx)!=want){sx=-sx;sy=-sy}}tx(l,(tm?tm.x:(a.x+b.x)/2)+sx,(tm?tm.y:(a.y+b.y)/2)+sy,DH,t,an*180/Math.PI,1)},
+ lab=(l,a,b,t,tm,bx)=>{let an=Math.atan2(-(b.y-a.y),b.x-a.x);if(Math.abs(an)>Math.PI/2)an+=Math.PI;if(Math.abs(Math.sin(an))>.9)an=Math.PI/2;let sx=-Math.sin(an)*(DH/2+SC),sy=-Math.cos(an)*(DH/2+SC);if(bx!=null&&Math.abs(Math.sin(an))>.9){const want=a.x<bx?-1:1;if(Math.sign(sx)!=want){sx=-sx;sy=-sy}}tx(l,(tm?tm.x:(a.x+b.x)/2)+sx,(tm?tm.y:(a.y+b.y)/2)+sy,DH,t,an*180/Math.PI,1)},
  tick=(l,q)=>{for(const r_ of[45,20])e+=`0\nCIRCLE\n8\n${l}\n10\n${X(q)}\n20\n${Y(q)}\n30\n0\n40\n${r_}\n`};
  const mm_=.35278,mt=(t,x,y,fs,al,mw)=>{if(!t)return;let h=fs*mm_;const w=[...String(t)].reduce((q,ch)=>q+(ch.charCodeAt(0)<128?.55:1)*h,0);if(w>mw*mm_)h=h*mw*mm_/w;tx('FRAME',x*mm_*SC,(al==1?y*mm_-h*.35:y*mm_)*SC,h*SC,t,0,al)};
  FRL.forEach(([a,b,d,g,w])=>ln(w>.3?'FRAME_OUT':'FRAME',{x:a*SC,y:b*SC},{x:d*SC,y:g*SC}));
@@ -927,7 +1037,7 @@ async function dxf(){
   const rr=o.wd,th=Math.atan2(g.u.y,g.u.x);
   if(o.k=='片開き'||o.k=='両開き'||o.k=='スイングドア')(o.k=='スイングドア'?[[0,o],[1,o],[0,{...o,sw:-(o.sw<0?-1:1)}],[1,{...o,sw:-(o.sw<0?-1:1)}]]:(o.k=='片開き'?[o.hg?1:0]:[0,1]).map(x=>[x,o])).forEach(([wh,oo])=>{const q=swg(oo,g,wh),r2=o.k=='片開き'?rr:rr/2;ln('OPENING',{x:q.H.x+q.m.x*r2,y:q.H.y+q.m.y*r2},q.H);ar('OPENING',q.H,r2,q.aE,q.aM,q.ccw)});
   tx('OPENING',(a.x+b.x)/2+n.x*(h+100),(a.y+b.y)/2+n.y*(h+100),100,o.k+' '+o.wd+'×'+o.h,0,1)});
- const _bx=dimBoxX();D.dims.forEach(d=>{const g=dimG(d);if(!g)return;ln('DIM',g.A,g.a);ln('DIM',g.B,g.b);ln('DIM',g.a,g.b);tick('DIM',g.a);tick('DIM',g.b);lab('DIM',g.a,g.b,Math.round(g.L),g.tm,_bx)});
+ const _bx=dimBoxX();D.dims.forEach(d=>{const g=dimG(d);if(!g)return;const E_=extPts(d,g);ln('DIM',E_[0][0],E_[0][1]);ln('DIM',E_[1][0],E_[1][1]);ln('DIM',g.a,g.b);tick('DIM',g.a);tick('DIM',g.b);lab('DIM',g.a,g.b,Math.round(g.L),g.tm,_bx)});
  D.meas.forEach(m=>{const a={x:m.x1,y:m.y1},b={x:m.x2,y:m.y2};ln('MEASURE',a,b);[a,b].forEach(q=>{tick('MEASURE',q)});lab('MEASURE',a,b,m.val)});
  D.walls.forEach(w=>{if(w.kind!='part'||!w.ms)return;[1,-1].forEach(sd=>{const v=w.ms[sd>0?'p':'m'];if(!v)return;const q=pbq(w,sd*w.t/2,sd*w.t/2);lab('MEASURE',q[0],q[1],'実測 '+v)})});
  SHP().forEach(s=>{if(s.t=='img')return;const A={x:s.x1,y:s.y1},B={x:s.x2,y:s.y2},hd=(p,q)=>{const an=Math.atan2(q.y-p.y,q.x-p.x),v=[.4,-.4].map(d=>({x:q.x-250*Math.cos(an+d),y:q.y-250*Math.sin(an+d)}));ln(NL,q,v[0]);ln(NL,q,v[1]);ln(NL,v[0],v[1])};
@@ -959,11 +1069,12 @@ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const p=W(e),th=(e.pointe
  if(tool=='pan')drag={t:'pan'};else if(tool=='mvall')drag={t:'all',lx:p.x,ly:p.y};
  else if(tool=='outer'||(tool=='part'&&pmode=='hand')){stk=[p];if(otl=='erase'){stk.er=1;stk.sn=oSnap();stk.ch=oErase(p,p)?1:0;ocur=p;render()}}
  else if(tool=='open'&&pal)ghost=near(p,40/V.s);
- else if(tool=='dim'){let isNew=0,d=hitDim(p,th*2);if(!d){const n=near(p,th*2);if(n){d=D.dims.find(x=>x.t=='pp'?((x.p==n.w.a&&x.q==n.w.b)||(x.p==n.w.b&&x.q==n.w.a)):x.w==n.w.id);if(!d){save();d={id:D.n++,w:n.w.id,off:600};D.dims.push(d);isNew=1}}}if(d)drag={t:'dim',o:d,tx:0,g:dimGrab(d,p,0,isNew),set:[d]}}
+ else if(tool=='dim'){if(sel&&sel.dg){const bt=dimBtns(sel.dg).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);if(bt){dn=null;drag=null;dimAct(bt.id);return}}{const eh=extPick(p,th);if(eh){drag=eh;return}}let isNew=0,d=hitDim(p,th*2);if(!d){const n=near(p,th*2);if(n){const sd=dmode=='seg'?segDimPick(n.w,p):null;if(sd){d=D.dims.find(x=>x.t=='pp'&&x.ax==sd.ax&&((x.p==sd.i&&x.q==sd.j)||(x.p==sd.j&&x.q==sd.i)));if(!d){save();d={id:D.n++,t:'pp',p:sd.i,q:sd.j,ax:sd.ax,pos:sd.pos};D.dims.push(d);isNew=1}}else{d=D.dims.find(x=>x.t=='pp'?((x.p==n.w.a&&x.q==n.w.b)||(x.p==n.w.b&&x.q==n.w.a)):x.w==n.w.id);if(!d){save();d={id:D.n++,w:n.w.id,off:600};D.dims.push(d);isNew=1}}}}if(d)drag={t:'dim',o:d,tx:0,g:dimGrab(d,p,0,isNew),set:[d]};else if(sel&&sel.dg){sel=null;dn=null;render()}}
  else if(tool=='shape'&&sel&&SHP().includes(sel.o)){if(!shapePick(p,th)){sel=null;dn=null;render()}}
  else if((tool=='shape'||(tool=='eq'&&shp&&shp.startsWith('sym:')))&&shp){save();const s={id:D.n++,t:shp.startsWith('sym:')?'rect':shp,sym:shp.startsWith('sym:')?shp.slice(4):undefined,x1:p.x,y1:p.y,x2:p.x,y2:p.y,text:'',size:250,bump:300};SHP().push(s);sel={o:s};drag={t:'mk',o:s}}
  else if(tool=='sel'){
   if(sel&&sel.dg){const bt=dimBtns(sel.dg).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);if(bt){dn=null;drag=null;dimAct(bt.id);return}}
+  {const eh=extPick(p,th);if(eh){drag=eh;return}}
   if(sel&&sel.op&&D.ops.includes(sel.op)){const bt=opBtns(sel.op).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);if(bt){dn=null;drag=null;opAct(bt.id,sel.op);return}}
    if(mode=='plan'&&sel&&sel.wl&&D.walls.includes(sel.wl)){const wl_=sel.wl,bt=wallBtns(wl_).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);
     if(bt){dn=null;drag=null;wallAct(bt.id,wl_);return}
@@ -981,7 +1092,7 @@ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const p=W(e),th=(e.pointe
   let a=mode=='plan'?D.areas.find(a=>Math.hypot((a.lx??a.x)-p.x,(a.ly??a.y)-p.y)<th*4):null;if(a){drag={t:'area',o:a};return}const im_=hitImg(p);if(im_){const was=!!(sel&&sel.o==im_);sel={o:im_};drag={t:'mv',o:im_,lx:p.x,ly:p.y,was};render();return}
   sel=null;render()}};
 cv.onpointermove=e=>{if(!dn){if(tool=='part'&&pmode!='hand'){if(pdrag){const mx=e.offsetX-pdrag.sx,my=e.offsetY-pdrag.sy;if(Math.hypot(mx,my)>3)pdrag.mv=1;cur=pdrag.pen?W(e):{x:pdrag.cx+mx/V.s,y:pdrag.cy+my/V.s};clampCur();hov=cur;render()}else if(e.pointerType=='mouse'){cur=W(e);hov=cur;render()}return}if(tool=='meas'){hov=W(e);render()}if((tool=='outer'||tool=='part')&&otl=='erase'){ocur=W(e);render()}return}const p=W(e);
- if(!dn.mv&&Math.hypot(e.offsetX-dn.sx,e.offsetY-dn.sy)>(drag&&drag.t=='dim'?3:6)){dn.mv=1;if(drag&&['hd','op','mv','dim','all','area','wend','wbody','owend'].includes(drag.t))save()}
+ if(!dn.mv&&Math.hypot(e.offsetX-dn.sx,e.offsetY-dn.sy)>(drag&&(drag.t=='dim'||drag.t=='ext')?3:6)){dn.mv=1;if(drag&&['hd','op','mv','dim','all','area','wend','wbody','owend','ext'].includes(drag.t))save()}
  if(stk){if(stk.er){const a_=stk.at(-1);if(oErase(a_,p))stk.ch=1;stk.length=0;stk.push(p);ocur=p}else stk.push(p)}if(ghost!==null&&tool=='open')ghost=near(p,40/V.s);
  if(drag){const t=drag.t,o=drag.o;
   if(t=='pan'){V.ox=dn.ox+e.offsetX-dn.sx;V.oy=dn.oy+e.offsetY-dn.sy}
@@ -989,6 +1100,7 @@ cv.onpointermove=e=>{if(!dn){if(tool=='part'&&pmode!='hand'){if(pdrag){const mx=
   else if(t=='all'){let dx=p.x-drag.lx,dy=p.y-drag.ly;const b=bounds();if(b&&inFrame()){const S=meta.sc;dx=Math.max(9*S-b.x0,Math.min(411*S-b.x1,dx));dy=Math.max(9*S-b.y0,Math.min(269*S-b.y1,dy))}shiftAll(dx,dy);drag.lx=p.x;drag.ly=p.y}
   else if(t=='dim'&&(dn.mv||tool=='dim')){if(o.t=='pp'){if(drag.tx)o.tp=snapDim(o,dimProj(o,p,1)+drag.g,true);else{SNX=drag.set||null;const np=snapDim(o,dimProj(o,p,0)+drag.g,false);SNX=null;const dl=np-o.pos,st_=drag.set||[o];st_.forEach(x=>{if(x.t=='pp'&&x.ax==o.ax)x.pos+=dl});if(!st_.includes(o))o.pos=np}}else{const g=dg(o);if(g){o.off=dimProj(o,p,0)+drag.g;const g2=dg(o),hz=Math.abs(g2.B.x-g2.A.x)>=Math.abs(g2.B.y-g2.A.y),cur=hz?g2.a.y:g2.a.x,sn=snapDim(o,cur,false),np=hz?(g2.B.x-g2.A.x)/g2.L:-(g2.B.y-g2.A.y)/g2.L;if(sn!=cur&&Math.abs(np)>.5)o.off+=(sn-cur)/np}}}
   else if(t=='op'&&dn.mv){const n=near(p,40/V.s);if(n){o.w=n.w.id;o.off=Math.max(0,Math.min(n.t*n.L-o.wd/2,Math.max(0,n.L-o.wd)))}}
+   else if(t=='ext'&&dn.mv){extDrag(drag,p)}
    else if(t=='wend'&&dn.mv){moveTerm(drag,p)}
    else if(t=='wbody'&&dn.mv){slideWall(drag,p)}
    else if(t=='owend'&&dn.mv){owMove(drag,p)}
@@ -1015,7 +1127,7 @@ cv.onpointerup=async e=>{if(pdrag){const pd=pdrag;pdrag=null;partRelease(pd);ret
      if(d.t=='dim'&&tool=='sel'){if(d.was&&d.set&&d.set.length==1)dimEdit(d.o);else render();return}
   if(d.t=='area'){const f=await ask('区画',[{l:'高さ(mm)',v:d.o.h}],1);if(f=='del'){save();D.areas=D.areas.filter(x=>x!=d.o)}else if(f&&+f[0]>0){save();d.o.h=lastH=+f[0]}commit();return}
   if(d.t=='mv'&&d.was&&(d.o.t=='text'||d.o.t=='call')){const f=await ask('文字',[{l:'内容',v:d.o.text,s:1}],1);if(f=='del'){save();delSh(x=>x!=d.o);sel=null}else if(f&&f[0]){save();d.o.text=f[0]}commit();return}}
- if(d&&mv)commit();else render()};
+ if(d&&d.t=='ext'&&!mv){const o=d.o,kk=d.k&&extKey(d.j,d.k);if(kk&&(d.k=='s'?o[kk]!=null:o[kk]))save(),extSet(o,d.j,d.k,null),commit();else render();return}if(d&&d.t=='dim'&&tool=='dim'&&D.dims.includes(d.o)){sel={dg:{set:[d.o],a:d.o,k:'one'}};commit();return}if(d&&mv)commit();else render()};
 const PT=new Map();let gest=null,pre0=0;const _pd=cv.onpointerdown,_pm=cv.onpointermove,_pu=cv.onpointerup;
 function cancelAct(){if(tool=='part'){if(chain&&chain.length>=2)chainFinish();else chainCancel();return}dm=null;mp1=null;mz=null;hov=null;ui();render()}
 cv.onpointerdown=e=>{if(e.pointerType=='touch'){PT.set(e.pointerId,[e.offsetX,e.offsetY]);if(PT.size>=2){clearTimeout(lpT);fdn=null;if(!gest){if(drag&&drag.t=='mk')delSh(x=>x!==drag.o);if(stk&&stk.er&&stk.ch){ohist.push(stk.sn)}stk=null;ghost=null;dn=null;drag=null;sel=null;measDown=false;pdrag=null;if(tool=='part'&&chain&&chain.length>pre0){chain.pop();if(!chain.length)chain=null;ui()}const q=[...PT.values()],c=[(q[0][0]+q[1][0])/2,(q[0][1]+q[1][1])/2];gest={d0:Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1])||1,c0:c,s0:V.s,wx:(c[0]-V.ox)/V.s,wy:(c[1]-V.oy)/V.s,t:Date.now(),mv:0};render()}return}pre0=chain?chain.length:0}const rr_=_pd(e);if(e.pointerType=='touch'&&tool=='shape'&&dn&&PT.size==1){clearTimeout(lpT);lpT=setTimeout(()=>lpFire(e.offsetX,e.offsetY),450)}return rr_};
@@ -1030,6 +1142,8 @@ cv.onwheel=e=>{e.preventDefault();const f=e.deltaY<0?1.15:1/1.15;V.ox=e.offsetX-
 const TG=[['表示',[['pan','✋','画面移動'],['mvall','⬚','全選択']]],['作図',[['outer','✏️','外周'],['part','┃','間仕切り']]],['配置',[['open','🚪','建具'],['eq','🚻','設備'],['dim','↔','寸法線'],['shape','◇','図形'],['meas','📏','測定'],['laser','📡','レーザー測定']]],['入力・算出',[['sel','👆','選択・寸法入力'],['area','▦','面積算出']]]];
 function mk(par,ic,lb,fn,cls){const b=document.createElement('button');b.className='tbn'+(cls?' '+cls:'');b.innerHTML='<b>'+ic+'</b><span>'+lb+'</span>';b.onclick=fn;par.appendChild(b);return b}
 function grp(t,name){const g=document.createElement('div');g.className='g';g.innerHTML='<i>'+name+'</i><div class="gb"></div>';t.appendChild(g);return g.lastChild}
+function penCol(par,k){const l=document.createElement('label');l.style.cssText='display:flex;align-items:center;gap:4px;font-weight:bold';l.appendChild(document.createTextNode(k=='o'?'外周ペン色':'間仕切りペン色'));const i=document.createElement('input');i.type='color';i.value=PEN[k];i.style.cssText='width:34px;height:30px;padding:0;border:1px solid #9ca3af;border-radius:6px';i.oninput=()=>{PEN[k]=i.value;try{localStorage.setItem('rat_pen',JSON.stringify(PEN))}catch(e){}render()};l.appendChild(i);
+ [['#2563eb','青'],['#dc2626','赤'],['#16a34a','緑'],['#111827','黒'],['#f97316','橙']].forEach(([c_,n_])=>{const b=document.createElement('button');b.title=n_;b.style.cssText='width:26px;height:26px;padding:0;border-radius:50%;background:'+c_+';border:2px solid #fff;outline:1px solid #94a3b8;min-height:0';b.onclick=()=>{PEN[k]=c_;i.value=c_;try{localStorage.setItem('rat_pen',JSON.stringify(PEN))}catch(e){}render()};l.appendChild(b)});par.appendChild(l)}
 function sbBtn(par,l,fn,cls){const b=document.createElement('button');b.textContent=l;if(cls)b.className=cls;b.onclick=fn;par.appendChild(b);return b}
 const TGR=[['表示',[['pan','✋','画面移動'],['mvall','⬚','全選択']]],['配置',[['shape','◇','設備・図形'],['meas','📏','測定']]],['編集',[['sel','👆','選択・編集']]]];
 HINT.rcp='天井設備を選んで画面をタップで配置(ドラッグで大きさ指定)。配置後は「選択・編集」でタップ→移動、○で拡大縮小・回転、赤×で削除。壁・建具は薄く表示される下図です。配置中でも右クリック(iPadは長押し)で図形を選択できます';
@@ -1038,6 +1152,7 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
  if(tool=='part'){if(!cur)cur={x:(cw/2-V.ox)/V.s,y:(ch/2-V.oy)/V.s};else clampCur()}
  const gv=grp(t,'ビュー');mk(gv,'📐','平面現調図',()=>setMode('plan')).classList.toggle('on',mode=='plan');mk(gv,'💡','天井配置確認図',()=>setMode('rcp')).classList.toggle('on',mode=='rcp');
  const gst=grp(t,'現場');mk(gst,'🏗',siteLabel(),siteM);
+  {const cs=SITES.list[SITES.cur];if(cs){const F=FL(cs),gf=grp(t,'階');F.slice(0,6).forEach((fl,i)=>{const b=mk(gf,'🏢',fl.n.length>5?fl.n.slice(0,5)+'…':fl.n,()=>floorSwitch(i));if(i==cs.fi)b.classList.add('on')});if(F.length>6)mk(gf,'…','他'+(F.length-6),floorM);mk(gf,'＋','階追加',floorAdd);mk(gf,'⚙','階の管理',floorM)}}
  (mode=='rcp'?TGR:TG).forEach(([name,items])=>{const g=grp(t,name);items.forEach(([k,ic,lb])=>{const b=mk(g,ic,lb,()=>{tool=k;palCat=null;measDown=false;sel=null;chain=null;hov=null;mp1=null;mz=null;dm=null;pdrag=null;ui();render()});if(tool==k)b.classList.add('on')})});
  const gd=grp(t,'図面・寸法');mk(gd,'ℹ','図面情報',infoM);if(mode=='plan'){mk(gd,'📐','外周一括寸法',batchDim);mk(gd,'🗑','一括寸法削除',batchDel)}
  const gs=grp(t,'選択図形');mk(gs,'⊕','拡大',()=>scSel(1.1));mk(gs,'⊖','縮小',()=>scSel(1/1.1));
@@ -1068,7 +1183,7 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
   bt('↶ 1つ戻す',oUndo,'',!ohist.length);
   bt('🗑 書いた線を全消去',oClear,'',!(ostk.length||pstk.length));
   bt('✔ 外周・間仕切線 確定',hwConfirm,'ok',!(ostk.length||pstk.length));
-  h(HINT.parthand)}
+  penCol(s,'p');h(HINT.parthand)}
  else if(tool=='part'){sbBtn(s,'✏️ 手書きに切替',()=>{pmode='hand';chain=null;otl='pen';ocur=null;ui();render()});
   if(chain){h(chain.length==2&&chain.adj?'角を押さえました ─ 終点を押さえるまでカーソルに合わせて線が追従します(白○が角の位置)。位置が決まったら終点を押さえてください。壁(橙●)に当たると終了/ダブルクリック・右クリック・「確定」で終了':'点 '+chain.length+' 個 ─ 十字カーソルを動かして「点を置く」。壁(橙●)に吸着して指を離す/「確定」で終了');sbBtn(s,'✔ 確定',()=>chainFinish(),'ok');sbBtn(s,'↶ 1点戻す',chainBack);sbBtn(s,'✕ 中止',chainCancel)}
   else h(HINT.part2);pbarMake()}
@@ -1080,18 +1195,19 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
    bt('🗑 書いた線を全消去',oClear,'',!(ostk.length||pstk.length));
    bt('✔ 外周・間仕切線 確定',hwConfirm,'ok',!(ostk.length||pstk.length));
    if(D.walls.some(w=>w.on))bt('↔ 内外反転',oFlip,'',false,'直前に確定した開いた外壁の、PB・下地を付ける側を反対にします');
-   h(HINT.outer)}
+   penCol(s,'o');h(HINT.outer)}
   else if(tool=='laser'){const cn=!!(LZ.dev&&LZ.dev.gatt&&LZ.dev.gatt.connected);
   sbBtn(s,cn?'📡 切断':'📡 距離計に接続',cn?laserDisc:laserConnect,cn?'':'ok');h(LZ.st+(cn?'('+LZ.name+')':''));if(cn&&LZ.ch){sbBtn(s,'▶ 測定要求を送る',async()=>{await lzSync([0xC0,0x40,0x00,0xEE]);LZ.st='測定要求送信'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});}if(cn&&LZ.ch)sbBtn(s,'⟳ 同期コマンド再送',async()=>{await lzSync();LZ.st='同期コマンド再送'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});
   if(LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;
-   if(w.kind=='part')[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()},LZ.sd==sd?'on':''));else{const I=segInfo(w);if(I&&I.m.length){const go=i=>()=>{LZ.seg=i;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()};sbBtn(s,'外壁全長',go(null),LZ.seg==null?'on':'');I.segs.forEach((g,i)=>sbBtn(s,'区間'+(i+1)+' '+Math.round(g.hi-g.lo),go(i),LZ.seg===i?'on':''))}else h('外周壁')}
+   if(w.kind=='part'){[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{if(LZ.sd!=sd)LZ.seg=null;LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()},LZ.sd==sd?'on':''));const I=segInfoP(w,LZ.sd);if(I.segs.length>1){const go=i=>()=>{LZ.seg=i;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()};sbBtn(s,'面の全長',go(null),LZ.seg==null?'on':'');I.segs.forEach((g,i)=>sbBtn(s,'区間'+(i+1)+' '+Math.round(g.hi-g.lo),go(i),LZ.seg===i?'on':''))}}else{const I=segInfo(w);if(I&&I.m.length){const go=i=>()=>{LZ.seg=i;LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()};sbBtn(s,'外壁全長',go(null),LZ.seg==null?'on':'');I.segs.forEach((g,i)=>sbBtn(s,'区間'+(i+1)+' '+Math.round(g.hi-g.lo),go(i),LZ.seg===i?'on':''))}else h('外周壁')}
    h('図面寸法 '+lzCur(w,LZ.sd)+' mm');
    const ms=w.ms&&w.ms[LZ.sd>0?'p':'m'];if(ms)h('実測 '+ms+' mm');
    sbBtn(s,'↻ 再測定',()=>{LZ.armed=true;LZ.done=null;LZ.msg='';ui();render()});sbBtn(s,'✎ 直接入力',lzManual);
    h(LZ.armed?'▶ 距離計で測定してください(測定待ち)':'✔ 反映済み ─ 再測定は壁をもう一度タップ/「再測定」')}
-  else h('測定したい壁をタップ(間仕切りは測りたい面の側をタップ)');
+  else h('測定したい壁をタップ(間仕切りは測りたい面の側をタップ。十字・T字の交点がある面は、交点ごとの区間に分かれ、タップ位置の区間を測定。区間ボタンでも切替可)');
   if(LZ.msg)h(LZ.msg);if(LZ.last)h('最新受信 '+LZ.last.v+' mm');h('受信'+(LZ.cnt||0)+'件'+(LZ.raw?' 最新データ: '+LZ.raw:' (まだ何も届いていません)'));if(LZ.chars&&LZ.chars.length)h('特性: '+LZ.chars.join(' '));if(LZ.log&&LZ.log.length>1)h('履歴: '+LZ.log.join(' | '))}
-  else if(tool=='sel'){h(mode=='rcp'?'設備・図形をタップで選択 → ドラッグで移動、○で拡大縮小、緑○で回転、赤×で削除':HINT.sel)}
+  else if(tool=='dim'){sbBtn(s,'交点間(区間)',()=>{dmode='seg';ui()},dmode=='seg'?'on':'');sbBtn(s,'壁の全長',()=>{dmode='whole';ui()},dmode=='whole'?'on':'');h('壁をタップ→外側へドラッグで配置。「交点間」はタップ位置の、十字・T字・コーナー交点どうしの区間を寸法にします。複数の区間を並べた列は、寸法を選んで「合計寸法」を押すと最初〜最後の全体寸法が外側に追加されます。置いた寸法は「選択・寸法入力」で選ぶと、引出線の両端に○(橙=起点側を短縮 / 緑=寸法線を越えて延長)が出てドラッグで伸縮でき、○をタップすると元(自動)に戻ります。連続した寸法の共通の引出線は隣の寸法にも同時に反映されます')}
+ else if(tool=='sel'){h(mode=='rcp'?'設備・図形をタップで選択 → ドラッグで移動、○で拡大縮小、緑○で回転、赤×で削除':HINT.sel)}
  else h(HINT[tool])}
 
 document.addEventListener('pointerdown',e=>{if(palCat&&!e.target.closest('#pm')&&!e.target.closest('#sb')){palCat=null;ui()}},true);
