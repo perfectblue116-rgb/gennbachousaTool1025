@@ -312,7 +312,7 @@ function partChain(w0){const parts=D.walls.filter(x=>x.kind=='part');
 function opsSnap(ch){const r=[];ch.W.forEach(s=>{const w=s.w,A=D.pts[w.a],B=D.pts[w.b],L=Math.hypot(B.x-A.x,B.y-A.y)||1,u={x:(B.x-A.x)/L,y:(B.y-A.y)/L};D.ops.forEach(o=>{if(o.w==w.id)r.push({o,off0:o.off,A0:{x:A.x,y:A.y},u,w})})});return r}
 function opsFix(l){l.forEach(r=>{const A=D.pts[r.w.a],L=wl(r.w),off=r.off0-((A.x-r.A0.x)*r.u.x+(A.y-r.A0.y)*r.u.y);r.o.off=Math.max(0,Math.min(off,Math.max(0,L-r.o.wd)))})}
 function moveTerm(d,p){const{W:Ws,V0}=d.ch,n=Ws.length,t=d.ti,f=t?0:n,F=V0[f],nb=t?n-1:1,ax0=Math.abs(V0[t].x-V0[nb].x)>=Math.abs(V0[t].y-V0[nb].y)?'x':'y',th=26/V.s;
- if(!d.init){d.init=1;const sw=Ws[t?n-1:0],pi=t?sw.pb:sw.pa;sw.w.at=sw.w.at||[undefined,undefined];sw.w.at[sw.w.a==pi?0:1]=undefined}
+ if(!d.init){d.init=1;d.sl=n==1?slideSet(Ws[0].w):null;const sw=Ws[t?n-1:0],pi=t?sw.pb:sw.pa;sw.w.at=sw.w.at||[undefined,undefined];sw.w.at[sw.w.a==pi?0:1]=undefined}
  let q,k;
  if(n==1){let ax=d.ax||ax0;const dx=p.x-F.x,dy=p.y-F.y,cu=Math.abs(ax=='x'?dx:dy),ot=Math.abs(ax=='x'?dy:dx);if(ot>cu*1.5&&ot>40/V.s)ax=ax=='x'?'y':'x';d.ax=ax;k=ax;q={x:F.x,y:F.y};q[k]=p[k]}
  else{k=ax0;q={x:p.x,y:p.y}}
@@ -320,14 +320,19 @@ function moveTerm(d,p){const{W:Ws,V0}=d.ch,n=Ws.length,t=d.ti,f=t?0:n,F=V0[f],nb
  D.walls.forEach(w=>{if(skip.has(w)||wa(w)!=(k=='x'?1:0))return;const[P,Q]=wp(w),c=P[k],ext=w.kind=='outer'?OD(w)[2]:w.t/2,dd=Math.abs(c-q[k]);if(dd>th+ext)return;
   const ref=n==1?F[o_]:q[o_],lo=Math.min(P[o_],Q[o_])-th,hi=Math.max(P[o_],Q[o_])+th;if(ref<lo||ref>hi)return;if(!best||dd<best.d)best={d:dd,c}});
  d.snap=0;if(best){q[k]=best.c;d.snap=1}else q[k]=Math.round(q[k]/50)*50;
+ /* 同じ向きの間仕切りの端点に近づいたら吸着: 端点を合わせ、壁ごと横にずらして一直線(芯が同じ)にする */
+ d.dl=0;if(n==1&&k==ax0&&d.sl){const wax=ax0=='x'?0:1;let bt=null;
+  D.walls.forEach(w2=>{if(w2===Ws[0].w||w2.kind!='part'||wa(w2)!=wax)return;wp(w2).forEach(X=>{const dk=Math.abs(X[k]-p[k]),dc=Math.abs(X[o_]-p[o_]);if(dk<th&&dc<th){const dd=Math.hypot(dk,dc);if(!bt||dd<bt.d)bt={d:dd,X}}})});
+  if(bt){q[k]=bt.X[k];d.snap=1;d.dl=bt.X[o_]-F[o_]}}
  if(n>1)q[o_]=Math.round(q[o_]/50)*50;
  const base=n==1?F:V0[nb],sgn=Math.sign(V0[t][k]-base[k])||1;if((q[k]-base[k])*sgn<100)q[k]=base[k]+sgn*100;
  const Vn=V0.map(v=>({x:v.x,y:v.y}));Vn[t]=q;if(n>1)Vn[nb][o_]=q[o_];
  Ws.forEach((s,i)=>{const a=D.pts[s.pa],b=D.pts[s.pb];a.x=Vn[i].x;a.y=Vn[i].y;b.x=Vn[i+1].x;b.y=Vn[i+1].y});
+ if(n==1&&d.sl){const pk0=ax0=='x'?'y':'x',own=[D.pts[Ws[0].pa],D.pts[Ws[0].pb]];d.sl.forEach(m=>{if(k==ax0)m.pt[pk0]=m.v0+d.dl;else if(!own.includes(m.pt))m.pt[pk0]=m.v0})}
  opsFix(d.ops);render()}
 function slideSet(w){const[A,B]=wp(w),pk=wa(w)==0?'y':'x',r=[],seen=new Set(),add=pt=>{if(!seen.has(pt)){seen.add(pt);r.push({pt,v0:pt[pk]})}};add(A);add(B);
  D.walls.forEach(o=>{if(o===w||o.kind!='part'||wa(o)==wa(w))return;[o.a,o.b].forEach(i=>{const P=D.pts[i];if(sg(P,A,B)[0]<1.5)add(P)})});return r}
-function slideWall(d,p){const pk=d.pk,th=14/V.s;let tv=p[pk]+d.g,best=null;const skip=new Set(d.mv.map(m=>m.pt));
+function slideWall(d,p){const pk=d.pk,th=24/V.s;let tv=p[pk]+d.g,best=null;const skip=new Set(d.mv.map(m=>m.pt));
  D.pts.forEach(P=>{if(skip.has(P))return;const dd=Math.abs(P[pk]-tv);if(dd<th&&(!best||dd<best.d))best={d:dd,v:P[pk]}});
  tv=best?best.v:Math.round(tv/50)*50;d.snap=best?1:0;const dl=tv-d.s0;d.mv.forEach(m=>{m.pt[pk]=m.v0+dl});render()}
 function wallBtns(w){const[A,B]=wp(w),mx=(A.x+B.x)/2*V.s+V.ox,my=(A.y+B.y)/2*V.s+V.oy,L=[{id:'edit',t:'寸法・仕様',w:84},{id:'del',t:'削除',w:48}],tot=L.reduce((a,b)=>a+b.w+6,-6);
