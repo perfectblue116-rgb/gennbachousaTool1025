@@ -60,7 +60,27 @@ canvas{position:absolute;left:0;top:0;touch-action:none}
 #sm .sr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 4px;border-bottom:1px solid #e5e7eb}
 #sm .sr.cur{background:#eff6ff}#sm .nm2{flex:1;min-width:150px;display:flex;flex-direction:column}#sm .nm2 span{font-size:11px;color:#64748b}#fm{position:fixed;inset:0;background:#0007;z-index:30;display:flex;align-items:center;justify-content:center}#fm .bx{background:#fff;border-radius:12px;padding:14px;width:min(600px,94vw);max-height:88vh;display:flex;flex-direction:column}#fm .sl{overflow:auto;flex:1;border-top:1px solid #e5e7eb}#fm .sr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 4px;border-bottom:1px solid #e5e7eb}#fm .sr.cur{background:#eff6ff}#fm .nm2{flex:1;min-width:150px;display:flex;flex-direction:column}#fm .nm2 span{font-size:11px;color:#64748b}#fm .fr{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end}#fm button{min-height:38px}#fm button.ok{background:#2563eb;color:#fff;border-color:#2563eb}#fm button.dn{color:#b91c1c}
 #sm .fr{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end}#sm button{min-height:38px}
-#sm button.ok{background:#2563eb;color:#fff;border-color:#2563eb}#sm button.dn{color:#b91c1c}</style></head><body>
+#sm button.ok{background:#2563eb;color:#fff;border-color:#2563eb}#sm button.dn{color:#b91c1c}</style><style id="cds">#cd{position:fixed;inset:0;background:#0007;z-index:11;display:flex;align-items:center;justify-content:center;touch-action:pan-y}
+#cd .bx{background:#fff;border-radius:10px;padding:12px 14px;width:min(680px,96vw);max-height:94vh;overflow:auto;-webkit-overflow-scrolling:touch}
+#cd h3{margin:0 0 6px;font-size:16px;color:#b91c1c}
+#cd .sec{border-top:1px solid #e2e8f0;margin-top:10px;padding-top:8px}
+#cd svg{width:100%;height:auto;max-height:44vh;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;display:block;margin-top:4px}
+#cd .lg{font-size:11px;color:#475569;margin:4px 0;display:flex;flex-wrap:wrap;gap:2px 12px}
+#cd .lg i{display:inline-block;width:18px;height:0;border-top:4px solid;vertical-align:middle;margin-right:4px}
+#cd .cz{border-radius:6px;padding:6px 8px;margin:6px 0;line-height:1.7;font-size:12.5px}
+#cd .cause{background:#fef2f2;border:1px solid #fecaca}
+#cd .okb{background:#f0fdf4;border:1px solid #bbf7d0}
+#cd .pp{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
+#cd .pp button{text-align:left;padding:6px 10px;line-height:1.35}
+#cd .pp button small{opacity:.8}
+#cd .eg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 10px;margin-top:4px}
+#cd .eg label{display:flex;align-items:center;gap:4px;padding:2px 4px;border-radius:4px}
+#cd .eg label.ch{background:#dcfce7}
+#cd .eg input{width:88px;padding:5px;font:inherit;-webkit-user-select:text;user-select:text}
+#cd .eg small{color:#64748b}
+#cd .r{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+#cd .r button:disabled{opacity:.4;cursor:default}</style>
+</head><body>
 <div id="tb"></div><div id="sb"></div>
 <div id="wr"><canvas id="cv"></canvas><div id="warn"><span>図形が図面枠からはみ出しています。スケールを調整してください</span><button id="wb">スケール調整</button></div><div id="res"></div></div>
 <div id="md"><div id="bx"><b id="bt"></b><div id="bf"></div><div class="r"><button id="del" style="color:#b91c1c">削除</button><button id="ng">キャンセル</button><button id="ok" class="on">OK</button></div></div></div>
@@ -887,8 +907,96 @@ async function batchDim(){prepOut();const os=D.walls.filter(w=>w.kind=='outer');
 /* ---- 外周壁生成: 外周壁に記録した寸法(pd)で外周を組み直す ----
    外周のアウトラインは概形なので、寸法を入力しても図面の長さはすぐには変えない(pdに記録)。
    全辺の実寸を入力してからこのボタンで、記録した寸法どおりに直線・直角の外周を組み直す。
-   外周の内側にある間仕切り等の点は、外周の伸縮に合わせて比例配置する。 */
-function outerRebuild(){
+   外周の内側にある間仕切り等の点は、外周の伸縮に合わせて比例配置する。
+   入力した寸法で外周が閉じないときは、原因を図示して修正案を出す(closeDlg)。 */
+const CNUM=i=>i<20?String.fromCharCode(9312+i):'('+(i+1)+')',mmf=v=>String(Math.round(v*10)/10);
+const AXJ={x:{nm:'横',p:'右',m:'左'},y:{nm:'縦',p:'下',m:'上'}};
+const resid=(E,len,ax)=>E.reduce((a,e,i)=>a+(e.k==ax?e.s*len[i]:0),0);
+/* 入力値が手書きの概形と極端に違う辺(桁違いなどの入力ミスの疑い) */
+const susp=e=>e.en&&Math.abs(e.L-e.dr)>300&&(e.L>e.dr*1.4||e.L<e.dr/1.4);
+const hw2=t=>t.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[．。]/g,'.').replace(/[,，、\s]/g,'');
+/* 1辺だけ変えて閉じる修正案(おすすめ順): 入力ミスが疑われる辺 → 未入力の辺 → 入力済みの辺。同順位は手書きの概形に近い方 */
+function fixProps(it,ax){
+ const E=it.E,L0=E.map(e=>e.L),r=resid(E,L0,ax);
+ if(Math.abs(r)<.5)return[];
+ const rank=p=>p.sus&&p.dev<.4?0:p.en?2:1;
+ const a=E.map((e,i)=>{if(e.k!=ax)return null;const to=Math.round((L0[i]-r*e.s)*10)/10;
+  return{i,to,from:L0[i],dev:Math.abs(to-e.dr)/Math.max(e.dr,1),en:e.en,sus:susp(e)}}).filter(p=>p&&p.to>=50);
+ const ok=a.filter(p=>p.dev<=2.5);
+ return(ok.length?ok:a).sort((x,y)=>rank(x)-rank(y)||x.dev-y.dev).slice(0,4)}
+/* 入力寸法で始点から辺をたどった図。閉じないズレは赤い点線、手書きの概形は薄い点線で重ねる */
+function svgOf(it,len){
+ const E=it.E,n=E.length,W=520,H=340,pd=46,px=74;
+ const pt=[{x:0,y:0}];E.forEach((e,i)=>{const q=pt.at(-1),m={x:q.x,y:q.y};m[e.k]+=e.s*len[i];pt.push(m)});
+ const o0=it.old[0],old=it.old.map(q=>({x:q.x-o0.x,y:q.y-o0.y})),all=pt.concat(old);
+ const xs=all.map(q=>q.x),ys=all.map(q=>q.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ const sc=Math.min((W-2*px)/Math.max(x1-x0,1),(H-2*pd)/Math.max(y1-y0,1)),ox=(W-(x1-x0)*sc)/2,oy=(H-(y1-y0)*sc)/2;
+ const X=v=>ox+(v-x0)*sc,Y=v=>oy+(v-y0)*sc,r1=v=>Math.round(v*10)/10;
+ const cxm=pt.slice(0,n).reduce((a,q)=>a+q.x,0)/n,cym=pt.slice(0,n).reduce((a,q)=>a+q.y,0)/n;
+ const chg=i=>Math.abs(len[i]-E[i].L)>=.05,col=i=>chg(i)?'#16a34a':susp(E[i])?'#f59e0b':E[i].en?'#2563eb':'#64748b';
+ const halo='paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round';
+ let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">`;
+ s+=`<polyline points="${old.map(q=>r1(X(q.x))+','+r1(Y(q.y))).join(' ')}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 4"/>`;
+ let lab='';
+ E.forEach((e,i)=>{const a=pt[i],b=pt[i+1],c=col(i),ax=X(a.x),ay=Y(a.y),bx=X(b.x),by=Y(b.y),mx=(ax+bx)/2,my=(ay+by)/2;
+  s+=`<line x1="${r1(ax)}" y1="${r1(ay)}" x2="${r1(bx)}" y2="${r1(by)}" stroke="${c}" stroke-width="${chg(i)?5:4}" stroke-linecap="round"/>`;
+  const ux=e.k=='x'?e.s:0,uy=e.k=='y'?e.s:0,px=-uy,py=ux;
+  s+=`<polygon points="${r1(mx+ux*8)},${r1(my+uy*8)} ${r1(mx-ux*5+px*6)},${r1(my-uy*5+py*6)} ${r1(mx-ux*5-px*6)},${r1(my-uy*5-py*6)}" fill="${c}"/>`;
+  const t=CNUM(i)+' '+mmf(len[i])+(susp(e)&&!chg(i)?' ⚠':''),w=t.length*7.4+10;
+  const lx=Math.max(w/2+3,Math.min(W-w/2-3,e.k=='x'?mx:mx+(mx>=X(cxm)?1:-1)*(w/2+10))),ly=Math.max(13,Math.min(H-13,e.k=='x'?my+(my>=Y(cym)?1:-1)*17:my));
+  lab+=`<rect x="${r1(lx-w/2)}" y="${r1(ly-10)}" width="${r1(w)}" height="20" rx="4" fill="#fff" stroke="${c}" stroke-width="1.5"/><text x="${r1(lx)}" y="${r1(ly+5)}" font-size="13" text-anchor="middle" fill="#0f172a">${t}</text>`});
+ const gx=pt[n].x-pt[0].x,gy=pt[n].y-pt[0].y;
+ if(Math.hypot(gx,gy)>=.5){const ex=X(pt[n].x),ey=Y(pt[n].y),sx=X(0),sy=Y(0);
+  s+=`<line x1="${r1(ex)}" y1="${r1(ey)}" x2="${r1(sx)}" y2="${r1(sy)}" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/>`;
+  s+=`<circle cx="${r1(ex)}" cy="${r1(ey)}" r="7" fill="#dc2626"/>`;
+  const gt=[Math.abs(gx)>=.5?'横 '+mmf(Math.abs(gx)):'',Math.abs(gy)>=.5?'縦 '+mmf(Math.abs(gy)):''].filter(Boolean).join(' / ');
+  lab+=`<text x="${r1(Math.min(ex,W-120))}" y="${r1(ey-30)}" font-size="13" font-weight="bold" fill="#dc2626" style="${halo}">✕ ここで閉じない</text><text x="${r1(Math.min(ex,W-120))}" y="${r1(ey-14)}" font-size="13" font-weight="bold" fill="#dc2626" style="${halo}">ズレ ${gt} mm</text>`}
+ s+=`<circle cx="${r1(X(0))}" cy="${r1(Y(0))}" r="6" fill="#16a34a" stroke="#fff" stroke-width="2"/>`;
+ lab+=`<text x="${r1(X(0)-9)}" y="${r1(Y(0)-9)}" font-size="13" font-weight="bold" fill="#16a34a" text-anchor="end" style="${halo}">始点</text>`;
+ return s+lab+'</svg>'}
+function closeDlg(items){return new Promise(done=>{
+ const S=items.map(it=>({it,len:it.E.map(e=>e.L),L0:it.E.map(e=>e.L),pr:{x:fixProps(it,'x'),y:fixProps(it,'y')},ok:false}));
+ const need=(s,ax)=>Math.abs(resid(s.it.E,s.L0,ax))>=.5,AX=['x','y'];
+ const hasRec=S.every(s=>AX.every(ax=>!need(s,ax)||s.pr[ax].length));
+ const ov=document.createElement('div');ov.id='cd';
+ ov.innerHTML=`<div class="bx"><h3>⚠ 入力した寸法では外周が閉じません</h3><div class="h">外周が閉じるには、<b>右向きの辺の合計＝左向きの辺の合計</b>、<b>下向きの辺の合計＝上向きの辺の合計</b>になる必要があります。下の図は、入力した寸法で始点(緑)から辺をたどったもので、<b style="color:#dc2626">赤い点線が閉じないズレ</b>です。</div>`
+  +S.map((s,k)=>`<div class="sec"><b>${S.length>1?'外周'+(k+1)+' ─ ':''}どこが合わないか</b><div class="sv"></div><div class="lg"><span><i style="border-color:#2563eb"></i>入力した寸法</span><span><i style="border-color:#64748b"></i>未入力(図面の長さ)</span><span><i style="border-color:#f59e0b"></i>概形と大きく違う入力</span><span><i style="border-color:#16a34a"></i>修正案で変更した辺</span><span><i style="border-color:#94a3b8;border-top-width:2px;border-top-style:dashed"></i>手書きの概形</span></div><div class="cz"></div><div class="pp"></div><b style="font-size:12px">辺ごとの寸法(直接直すこともできます)</b><div class="eg"></div></div>`).join('')
+  +`<div class="r"><button id="cdn">キャンセル</button><button id="cdr">入力どおりに戻す</button><button id="cdg" class="on">この寸法で外周壁生成</button>${hasRec?'<button id="cdq" class="on" style="background:#059669;border-color:#059669">⭐おすすめ案で外周壁生成</button>':''}</div></div>`;
+ document.body.appendChild(ov);
+ const sec=k=>ov.querySelectorAll('.sec')[k],fin=v=>{ov.remove();done(v)};
+ const upd=k=>{const s=S[k],E=s.it.E,q=c=>sec(k).querySelector(c);
+  s.ok=AX.every(ax=>Math.abs(resid(E,s.len,ax))<.5);
+  q('.sv').innerHTML=svgOf(s.it,s.len);
+  let h='';
+  AX.forEach(ax=>{const J=AXJ[ax],r=resid(E,s.len,ax),bad=Math.abs(r)>=.5,
+   P=E.map((e,i)=>e.k==ax&&e.s>0?i:-1).filter(i=>i>=0),M=E.map((e,i)=>e.k==ax&&e.s<0?i:-1).filter(i=>i>=0),
+   tm=a=>a.length?a.map(i=>CNUM(i)+' '+mmf(s.len[i])).join(' + ')+(a.length>1?' ＝ '+mmf(a.reduce((t,i)=>t+s.len[i],0)):''):'なし';
+   h+=`<div>${bad?'<span style="color:#dc2626">✕</span>':'<span style="color:#16a34a">✔</span>'} <b>${J.nm}方向</b> ${J.p}向き: ${tm(P)} ／ ${J.m}向き: ${tm(M)}${bad?` → <b style="color:#dc2626">${r>0?J.p:J.m}向きの合計が ${mmf(Math.abs(r))} mm 大きい</b>`:' → 一致'}</div>`});
+  if(s.ok)h+='<div style="color:#166534;font-weight:bold;margin-top:4px">✔ この寸法で外周が閉じます。「この寸法で外周壁生成」を押してください。</div>';
+  else{E.forEach((e,i)=>{if(susp(e)&&Math.abs(s.len[i]-e.L)<.05)h+=`<div>⚠ ${CNUM(i)} の入力 ${mmf(e.L)} mm は、手書きの概形(約 ${mmf(e.dr)} mm)と大きく違います。桁や数字の入力ミスの可能性があります。</div>`});
+   h+='<div class="h" style="margin-top:4px">考えられる原因: 寸法の入力ミス(桁違い・数字違い)、ズレの方向にある辺の寸法の過不足。下の修正案か、辺ごとの寸法欄で直してください。</div>'}
+  const cz=q('.cz');cz.className='cz '+(s.ok?'okb':'cause');cz.innerHTML=h;
+  let ph='';
+  AX.forEach(ax=>{if(!need(s,ax))return;const P=s.pr[ax];
+   ph+=`<div class="h" style="flex-basis:100%"><b>${AXJ[ax].nm}方向の修正案</b>(1辺だけ直して閉じる)</div>`;
+   if(!P.length)ph+='<div class="h" style="flex-basis:100%">1辺だけを直して閉じる案がありません。下の欄で複数の辺を見直してください。</div>';
+   P.forEach((p,j)=>{const on=Math.abs(s.len[p.i]-p.to)<.05;
+    ph+=`<button data-p="1" data-k="${k}" data-i="${p.i}" data-to="${p.to}" class="${on?'on':''}">${j==0?'⭐おすすめ ':''}${CNUM(p.i)} ${AXJ[ax][E[p.i].s>0?'p':'m']}向きの辺 ${mmf(p.from)} → <b>${mmf(p.to)}</b> mm<br><small>手書きの概形 ${mmf(E[p.i].dr)}${p.sus?' ／ 入力ミスの可能性':''}</small></button>`})});
+  q('.pp').innerHTML=ph;
+  [...q('.eg').children].forEach((lb,i)=>{const inp=lb.querySelector('input');lb.classList.toggle('ch',Math.abs(s.len[i]-E[i].L)>=.05);if(document.activeElement!==inp){inp.value=mmf(s.len[i]);inp.style.background=''}});
+  ov.querySelector('#cdg').disabled=!S.every(x=>x.ok)};
+ S.forEach((s,k)=>{const eg=sec(k).querySelector('.eg');
+  eg.innerHTML=s.it.E.map((e,i)=>`<label>${CNUM(i)} ${AXJ[e.k][e.s>0?'p':'m']}向き<input value="${mmf(e.L)}" inputmode="decimal"> mm${e.en?'':'<small>(未入力)</small>'}</label>`).join('');
+  [...eg.querySelectorAll('input')].forEach((inp,i)=>inp.oninput=()=>{const v=parseFloat(hw2(inp.value));if(v>0){s.len[i]=v;inp.style.background=''}else inp.style.background='#fee2e2';upd(k)});
+  upd(k)});
+ ov.onclick=ev=>{const b=ev.target.closest('button[data-p]');if(!b)return;const k=+b.dataset.k,i=+b.dataset.i,s=S[k],ax=s.it.E[i].k;
+  s.it.E.forEach((x,j)=>{if(x.k==ax)s.len[j]=s.L0[j]});s.len[i]=+b.dataset.to;upd(k)};
+ ov.querySelector('#cdn').onclick=()=>fin(null);
+ ov.querySelector('#cdr').onclick=()=>S.forEach((s,k)=>{s.len=s.L0.slice();upd(k)});
+ ov.querySelector('#cdg').onclick=()=>{if(S.every(s=>s.ok))fin(S.map(s=>s.len))};
+ const q=ov.querySelector('#cdq');
+ if(q)q.onclick=()=>{S.forEach(s=>AX.forEach(ax=>{if(need(s,ax)){const p=s.pr[ax][0];s.it.E.forEach((x,j)=>{if(x.k==ax)s.len[j]=s.L0[j]});s.len[p.i]=p.to}}));fin(S.map(s=>s.len))}})}
+async function outerRebuild(){
  const os=D.walls.filter(w=>w.kind=='outer');
  if(!os.length){alert('外周壁がありません');return}
  if(!os.some(w=>w.pd>0)){alert('外周壁の寸法が入力されていません。\n外周壁を選んで「寸法・仕様」(または寸法線の寸法値)で各辺の実寸法を入力してから押してください');return}
@@ -897,20 +1005,18 @@ function outerRebuild(){
  const walk=w0=>{const c=[];let w=w0;while(w&&!used.has(w)){used.add(w);c.push(w);w=byA.get(w.b)}return c};
  os.filter(w=>!hasPrev.has(w.a)).forEach(w=>{if(!used.has(w))chains.push(walk(w))});
  os.forEach(w=>{if(!used.has(w))chains.push(walk(w))});
- const plans=[],miss=[0,0];let adj=false;
+ const plans=[],items=[];
  for(const c of chains){
   const cl=c.length>2&&c.at(-1).b===c[0].a,P0=D.pts[c[0].a];
-  const E=c.map(w=>{const A=D.pts[w.a],B=D.pts[w.b],k=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y)?'x':'y';return{w,k,s:Math.sign(B[k]-A[k])||1,L:w.pd>0?w.pd:Math.abs(B[k]-A[k])}});
-  if(cl)['x','y'].forEach((ax,ai)=>{
-   const r=E.reduce((a,e)=>a+(e.k==ax?e.s*e.L:0),0);if(Math.abs(r)<.5)return;
-   const cand=E.filter(e=>e.k==ax&&!e.w.pd),pool=cand.length?cand:E.filter(e=>e.k==ax);if(!pool.length)return;
-   const e=pool.reduce((a,b)=>b.L>a.L?b:a);e.nl=e.L-r*e.s;miss[ai]+=Math.abs(r);adj=true});
-  for(const e of E){if(e.nl!=null){if(e.nl<50){alert('入力した寸法では外周が閉じません。寸法を見直してください');return}e.L=e.nl}}
-  const V=[{x:P0.x,y:P0.y}];E.forEach(e=>{const q=V.at(-1),n={x:q.x,y:q.y};n[e.k]+=e.s*e.L;V.push(n)});
-  plans.push({c,cl,V,old:[D.pts[c[0].a],...c.map(w=>D.pts[w.b])].map(q=>({x:q.x,y:q.y}))});
- }
- if(adj&&!confirm('入力した寸法では外周が閉じません(横 '+Math.round(miss[0])+' mm / 縦 '+Math.round(miss[1])+' mm の差)。\n寸法が未入力の辺(すべて入力済みなら最も長い辺)で調整して閉じますか?'))return;
+  const E=c.map(w=>{const A=D.pts[w.a],B=D.pts[w.b],k=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y)?'x':'y',dr=Math.abs(B[k]-A[k]),en=w.pd>0;return{w,k,s:Math.sign(B[k]-A[k])||1,L:en?w.pd:dr,dr,en}});
+  const old=[D.pts[c[0].a],...c.map(w=>D.pts[w.b])].map(q=>({x:q.x,y:q.y})),pl={c,cl,P0,E,old};
+  if(cl&&['x','y'].some(ax=>Math.abs(resid(E,E.map(e=>e.L),ax))>=.5))items.push(pl);
+  plans.push(pl)}
+ /* 閉じない外周がある: 原因の図と修正案を出し、選んだ(または直した)寸法で続行 */
+ if(items.length){const out=await closeDlg(items);if(!out)return;
+  items.forEach((pl,i)=>pl.E.forEach((e,j)=>{if(Math.abs(out[i][j]-e.L)>=.05){e.L=out[i][j];e.ed=1}}))}
  save();
+ plans.forEach(pl=>{pl.E.forEach(e=>{if(e.ed)e.w.pd=e.L});const V=[{x:pl.P0.x,y:pl.P0.y}];pl.E.forEach(e=>{const q=V.at(-1),n={x:q.x,y:q.y};n[e.k]+=e.s*e.L;V.push(n)});pl.V=V});
  const pairs=[],own=new Set();
  plans.forEach(({c,cl,V,old})=>{V.forEach((v,i)=>{pairs.push([old[i].x,v.x,'x'],[old[i].y,v.y,'y'])});
   c.forEach((w,i)=>{own.add(D.pts[w.a]);own.add(D.pts[w.b])})});
