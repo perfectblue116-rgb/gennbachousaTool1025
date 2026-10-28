@@ -225,6 +225,8 @@ function oApply(res){const gid=D.n++,S0=meta.sc;
 function oFlip(){const og=Math.max(0,...D.walls.filter(w=>w.on).map(w=>w.og||0)),L=D.walls.filter(w=>w.on&&(w.og||0)==og);if(!L.length)return;save();L.forEach(w=>{w.on=[-w.on[0],-w.on[1]]});commit();ui()}
 const orth=(a,p)=>Math.abs(p.x-a.x)>=Math.abs(p.y-a.y)?{x:p.x,y:a.y}:{x:a.x,y:p.y};
 function snapEnd(e,k){const o=k=='x'?'y':'x';let bd=30/V.s,bv=null;D.walls.forEach(w=>{const[P,Q]=wp(w);if(wa(w)==(k=='x'?1:0)){const c=P[k],d=Math.abs(c-e[k]),lo=Math.min(P[o],Q[o])-bd,hi=Math.max(P[o],Q[o])+bd;if(d<bd&&e[o]>=lo&&e[o]<=hi){bd=d;bv=c}}});if(bv!==null)e[k]=bv}
+/* 既存の壁(外周・間仕切り)の端点座標に吸着。新しい間仕切りを既存の間仕切りの通りに揃える */
+function cSnap(v,k,tol,from){let b=v,bd=tol;D.walls.forEach(w=>[w.a,w.b].forEach(i=>{const P=D.pts[i];if(!P)return;const d=Math.abs(P[k]-v);if(d<bd){bd=d;b=P[k]}}));return b}
 function chainPt0(p){
  const th=26/V.s;
  if(!chain){
@@ -234,7 +236,7 @@ function chainPt0(p){
   const ns=D.walls.filter(w=>sg(p,...wp(w))[0]<th);
   if(ns.some(w=>wa(w)==0)&&ns.some(w=>wa(w)==1)){let bp=null;ns.forEach(w=>wp(w).forEach(P=>{const d=Math.hypot(P.x-p.x,P.y-p.y);if(d<th*1.6&&(!bp||d<bp.d))bp={d,P}}));
    if(bp)return{q:{x:bp.P.x,y:bp.P.y},snap:1}}
-  const n=near(p,th);if(n){const[A,B]=wp(n.w),q={x:A.x+(B.x-A.x)*n.t,y:A.y+(B.y-A.y)*n.t},en=[A,B].find(P=>Math.hypot(P.x-q.x,P.y-q.y)<th*1.6);/* 壁の端付近は向きを固定せず縦横どちらにも引ける */if(en)return{q:{x:en.x,y:en.y},snap:1};return{q,snap:1,from:wa(n.w)}}return{q:{...p},snap:0}}
+  const n=near(p,th);if(n){const[A,B]=wp(n.w),q={x:A.x+(B.x-A.x)*n.t,y:A.y+(B.y-A.y)*n.t},en=[A,B].find(P=>Math.hypot(P.x-q.x,P.y-q.y)<th*1.6);/* 壁の端付近は向きを固定せず縦横どちらにも引ける */if(en)return{q:{x:en.x,y:en.y},snap:1};return{q,snap:1,from:wa(n.w)}}return{q:{x:cSnap(p.x,'x',th*.8),y:cSnap(p.y,'y',th*.8)},snap:0}}
  const a=chain.at(-1),q=(chain.length==1&&chain.from!==undefined)?(chain.from==0?{x:a.x,y:p.y}:{x:p.x,y:a.y}):orth(a,p),k=q.x!==a.x?'x':'y',o=k=='x'?'y':'x',sgn=Math.sign(q[k]-a[k])||1;
  let best=null;
  D.walls.forEach(w=>{if(wa(w)!=(k=='x'?1:0))return;const[P,Q]=wp(w),c=P[k];
@@ -243,6 +245,7 @@ function chainPt0(p){
   const lo=Math.min(P[o],Q[o])-th,hi=Math.max(P[o],Q[o])+th;if(q[o]<lo||q[o]>hi)return;
   if(!best||d<best.d)best={d,c}});
  if(best){q[k]=best.c;return{q,snap:1}}
+ {const v=cSnap(q[k],k,th*.6);if(Math.abs(v-a[k])>=50)q[k]=v}
  return{q,snap:0}}
 /* ---- 間仕切り作図: 十字カーソル(タッチはトラックパッド式の相対移動) ---- */
 function inOuter(p){const os=D.walls.filter(w=>w.kind=='outer'&&!w.on);if(os.length<4)return null;let c=0;os.forEach(w=>{const[P,Q]=wp(w);if((P.y>p.y)!=(Q.y>p.y)&&p.x<P.x+(p.y-P.y)*(Q.x-P.x)/(Q.y-P.y))c++});return c%2==1}
@@ -284,6 +287,7 @@ function chainPt(p){
   const ext=w.kind=='outer'?OD(w)[2]:w.t/2,d=Math.abs(c-q[k]);if(d>th+ext)return;
   const lo=Math.min(P[o],Q[o])-th,hi=Math.max(P[o],Q[o])+th;if(q[o]<lo||q[o]>hi)return;if(!best||d<best.d)best={d,c}});
  if(best){q[k]=best.c;return{q,snap:1}}
+ {const v=cSnap(q[k],k,th*.6);if(Math.abs(v-a[k])>=50)q[k]=v}
  return{q,snap:0}}
 function clampCur(){if(!cur)return;let sx=cur.x*V.s+V.ox,sy=cur.y*V.s+V.oy;const m=14;sx=Math.max(m,Math.min(cw-m,sx));sy=Math.max(m,Math.min(ch-m,sy));cur={x:(sx-V.ox)/V.s,y:(sy-V.oy)/V.s}}
 function partRelease(pd){if(!pd.mv||!cur){render();return}const r=chainPt(cur);if(r.none||!r.snap){render();return}
@@ -495,7 +499,7 @@ D.walls.forEach(w=>{if(w.kind!='part')return;const ax=wa(w),k=ax==0?'x':'y',pk=a
   P[pk]=Math.max(lo,Math.min(hi,P[pk]));P[k]=(O[k]-c)*sd>0?c+sd*OD(o)[2]:c})});
 squareUp()}
 function squareUp(){D.walls.forEach(w=>{if(w.kind!='part')return;const k=wa(w)==0?'x':'y',o2=k=='x'?'y':'x';[w.a,w.b].forEach((pi,ei)=>{if(w.at&&w.at[ei])return;const P=D.pts[pi];let best=null;D.walls.forEach(o=>{if(o===w||o.kind!='part'||wa(o)==wa(w))return;const[Q,R_]=wp(o),c=Q[k],lo=Math.min(Q[o2],R_[o2])-40,hi=Math.max(Q[o2],R_[o2])+40,d=Math.abs(P[k]-c);if(d<110&&P[o2]>=lo&&P[o2]<=hi&&(!best||d<best.d))best={d,c}});if(best)P[k]=best.c})})}
-const fx=(v,k)=>{const e=D.pts.find(p=>Math.abs(p[k]-v)<.01);return e?e[k]:Math.round(v/50)*50},addPx=(x,y)=>(D.pts.push({x:fx(x,'x'),y:fx(y,'y')}),D.pts.length-1);
+const fx=(v,k)=>{const c=cSnap(v,k,30);return c!==v?c:Math.round(v/50)*50},addPx=(x,y)=>(D.pts.push({x:fx(x,'x'),y:fx(y,'y')}),D.pts.length-1);
 function joins(){const r=[],ps=[];D.walls.forEach(w=>{if(w.kind=='part'){const[A,B]=wp(w);ps.push([A,w],[B,w])}});
  for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){const[p,w1]=ps[i],[q,w2]=ps[j];if(w1!==w2&&Math.abs(p.x-q.x)<1&&Math.abs(p.y-q.y)<1&&wa(w1)!=wa(w2))r.push({x:p.x,y:p.y,t:Math.max(w1.t,w2.t)})}return r}
 /* 壁の端を動かす: その端に接している別向きの間仕切り(L字・T字の取り合い)も一緒に平行移動して付いてくる */
