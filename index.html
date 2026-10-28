@@ -65,7 +65,7 @@ canvas{position:absolute;left:0;top:0;touch-action:none}
 #cd h3{margin:0 0 6px;font-size:16px;color:#b91c1c}
 #cd .sec{border-top:1px solid #e2e8f0;margin-top:10px;padding-top:8px}
 #cd svg{width:100%;height:auto;max-height:44vh;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;display:block;margin-top:4px}
-#cd .lg{font-size:11px;color:#475569;margin:4px 0;display:flex;flex-wrap:wrap;gap:2px 12px}
+#cd .zb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}#cd .zb small{color:#64748b;font-size:11px}#cd .sv{touch-action:none;user-select:none;-webkit-user-select:none}#cd .lg{font-size:11px;color:#475569;margin:4px 0;display:flex;flex-wrap:wrap;gap:2px 12px}
 #cd .lg i{display:inline-block;width:18px;height:0;border-top:4px solid;vertical-align:middle;margin-right:4px}
 #cd .cz{border-radius:6px;padding:6px 8px;margin:6px 0;line-height:1.7;font-size:12.5px}
 #cd .cause{background:#fef2f2;border:1px solid #fecaca}
@@ -156,7 +156,7 @@ function symIcon(n){const sz=26,k=document.createElement('canvas');k.width=k.hei
 const SH=[['line','直線'],['arrow','矢印'],['rect','四角'],['ell','丸'],['cloud','雲形'],['call','引出線注釈'],['text','文字'],...Object.keys(SYMS).map(n=>['sym:'+n,n])];
 const SI={line:'╱',arrow:'➜',rect:'▭',ell:'◯',cloud:'☁',call:'↗',text:'Ａ'},oi=n=>/開口/.test(n)?'⌷':/FIX/.test(n)?'▭':/引違い/.test(n)?'⇄':/片開き/.test(n)?'◜':/両開き/.test(n)?'◠':/引込み|片引き/.test(n)?'⇥':/自動/.test(n)?'⇆':/窓|サッシ|掃出/.test(n)?'▤':'▣';
 const NM={wfit:'壁寸法整備',laser:'レーザー測定',pan:'画面移動',mvall:'全選択',outer:'外壁を手書き(青線・1〜4面OK・柱型も概形で)。離しても整形されません。続けて「間仕切り」ボタンで間仕切り(赤線)も書けます。ずれた線は「消しゴム」で消して書き直し、できたら「外周・間仕切線 確定」で直線・直角の壁に整形します(始点付近まで戻ると閉じた外周になります)',part:'間仕切り',sel:'選択・寸法入力',open:'建具',eq:'設備',dim:'寸法線',area:'面積算出',shape:'図形',meas:'測定'};
-const HINT={wfit:'壁をタップで選択(間仕切りは整えたい面の側をタップ)→ 壁端の○をドラッグして伸縮すると、壁の寸法表示がそのまま変わります。数値入力はありません(寸法値の入力は「寸法線」ボタンで行います)',parthand:'間仕切りにしたい線を手書き(赤線)。先に書いた外周(青線)は手書き線のまま残ります。縦・横・直角に整形されるのは「外周・間仕切線 確定」を押したときです。ずれた線は「消しゴム」で青・赤どちらも消せます。壁や外周の近くで止めると確定時に自動で取り付き、交差・T字は納まり処理されます',laser:'測定したい壁をタップ(間仕切りは測りたい面の側をタップ)→レーザー距離計で測定すると数値が反映されます。もう一度壁をタップ(または「再測定」)で再測定できます',mvall:'全図形を選択中(青い破線)。左ボタン(指)を押したままドラッグで、全図形を図面枠内で移動できます',pan:'ドラッグで画面を移動(ホイール/＋－で拡大縮小)',outer:'外壁を手書き(1〜4面OK・柱型も概形で)。離しても整形されません ─ ずれた線は「消しゴム」で消して書き直し、できたら「確定」で直線・直角の外壁に整形します(始点付近まで戻ると閉じた外周になります)',part:'',sel:'建具はタップで選択→ドラッグで移動、出てくるボタンで吊元・開き方向の反転/寸法入力/削除(青い寸法は壁端からの距離)。壁・図形・実測線もタップして編集。図形は選択すると小さい○(角・辺)で拡大縮小、緑の○で回転、赤い×で削除。寸法線はタップで選択→ドラッグで個別移動(選択後のボタンで「この列」「一括選択」「削除」)',open:'建具を選び、壁の上をなぞって離した位置に配置',dim:'寸法を出したい壁をタップ→外側へドラッグ',area:'区画内をタップ→天井高さを入力',shape:'図形を選んでドラッグ(引出線注釈は 指す点→文字位置 へドラッグ)。作図済みの図形は右クリック(iPadは長押し)で選択→ドラッグで移動',meas:'',dim2:'2点を順にタップ(頂点に吸着)→寸法線を置く位置をタップ。寸法線・寸法値はドラッグで縦横に移動、隣の寸法に吸着します'};
+const HINT={wfit:'壁をタップで選択(間仕切りは整えたい面の側をタップ)→ 壁端の○をドラッグして伸縮するか、「✎ 内内寸法を入力」で数値入力(間仕切りは交点ごと・外周壁は間仕切りとぶつかる部分ごとの内内寸法)すると、交差する壁も一緒に伸縮します',parthand:'間仕切りにしたい線を手書き(赤線)。先に書いた外周(青線)は手書き線のまま残ります。縦・横・直角に整形されるのは「外周・間仕切線 確定」を押したときです。ずれた線は「消しゴム」で青・赤どちらも消せます。壁や外周の近くで止めると確定時に自動で取り付き、交差・T字は納まり処理されます',laser:'測定したい壁をタップ(間仕切りは測りたい面の側をタップ)→レーザー距離計で測定すると数値が反映されます。もう一度壁をタップ(または「再測定」)で再測定できます',mvall:'全図形を選択中(青い破線)。左ボタン(指)を押したままドラッグで、全図形を図面枠内で移動できます',pan:'ドラッグで画面を移動(ホイール/＋－で拡大縮小)',outer:'外壁を手書き(1〜4面OK・柱型も概形で)。離しても整形されません ─ ずれた線は「消しゴム」で消して書き直し、できたら「確定」で直線・直角の外壁に整形します(始点付近まで戻ると閉じた外周になります)',part:'',sel:'建具はタップで選択→ドラッグで移動、出てくるボタンで吊元・開き方向の反転/寸法入力/削除(青い寸法は壁端からの距離)。壁・図形・実測線もタップして編集。図形は選択すると小さい○(角・辺)で拡大縮小、緑の○で回転、赤い×で削除。寸法線はタップで選択→ドラッグで個別移動(選択後のボタンで「この列」「一括選択」「削除」)',open:'建具を選び、壁の上をなぞって離した位置に配置',dim:'寸法を出したい壁をタップ→外側へドラッグ',area:'区画内をタップ→天井高さを入力',shape:'図形を選んでドラッグ(引出線注釈は 指す点→文字位置 へドラッグ)。作図済みの図形は右クリック(iPadは長押し)で選択→ドラッグで移動',meas:'',dim2:'2点を順にタップ(頂点に吸着)→寸法線を置く位置をタップ。寸法線・寸法値はドラッグで縦横に移動、隣の寸法に吸着します'};
 /* ---- 図面枠(ベクター定義・A3 420x297mm / 単位mm)。画面・PDF・DXFで共通使用 ---- */
 const FRL=[[8.97,8.63,410.86,8.63,.35],[410.86,8.63,410.86,288.01,.35],[410.86,288.01,8.97,288.01,.35],[8.97,288.01,8.97,8.63,.35],
 [8.97,269.56,410.86,269.56,.18],
@@ -355,9 +355,9 @@ function slideSet(w){const[A,B]=wp(w),pk=wa(w)==0?'y':'x',r=[],seen=new Set(),ad
 function slideWall(d,p){const pk=d.pk,th=24/V.s;let tv=p[pk]+d.g,best=null;const skip=new Set(d.mv.map(m=>m.pt));
  D.pts.forEach(P=>{if(skip.has(P))return;const dd=Math.abs(P[pk]-tv);if(dd<th&&(!best||dd<best.d))best={d:dd,v:P[pk]}});
  tv=best?best.v:Math.round(tv/50)*50;d.snap=best?1:0;const dl=tv-d.s0;d.mv.forEach(m=>{m.pt[pk]=m.v0+dl});render()}
-function wallBtns(w){const[A,B]=wp(w),mx=(A.x+B.x)/2*V.s+V.ox,my=(A.y+B.y)/2*V.s+V.oy,L=[{id:'edit',t:'寸法・仕様',w:84},{id:'del',t:'削除',w:48}],tot=L.reduce((a,b)=>a+b.w+6,-6);
+function wallBtns(w){const[A,B]=wp(w),mx=(A.x+B.x)/2*V.s+V.ox,my=(A.y+B.y)/2*V.s+V.oy,L=[{id:'edit',t:'寸法・仕様',w:84},{id:'inner',t:'内内寸法',w:72},{id:'del',t:'削除',w:48}],tot=L.reduce((a,b)=>a+b.w+6,-6);
  let x=Math.max(tot/2+4,Math.min(cw-tot/2-4,mx))-tot/2;const y=Math.max(22,Math.min(ch-22,my-56));return L.map(b=>{const r={...b,h:30,x:x+b.w/2,y};x+=b.w+6;return r})}
-function wallAct(id,w){if(id=='edit'){wallM(w);return}if(id=='del'){save();D.walls=D.walls.filter(x=>x!=w);D.ops=D.ops.filter(o=>o.w!=w.id);D.dims=D.dims.filter(o=>o.w!=w.id);sel=null;commit()}}
+function wallAct(id,w){if(id=='edit'){wallM(w);return}if(id=='inner'){wfInput(w,true);return}if(id=='del'){save();D.walls=D.walls.filter(x=>x!=w);D.ops=D.ops.filter(o=>o.w!=w.id);D.dims=D.dims.filter(o=>o.w!=w.id);sel=null;commit()}}
 function drawBtns(c,L){L.forEach(bt=>{const x=bt.x-bt.w/2,y=bt.y-bt.h/2,r=8;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+bt.w,y,x+bt.w,y+bt.h,r);c.arcTo(x+bt.w,y+bt.h,x,y+bt.h,r);c.arcTo(x,y+bt.h,x,y,r);c.arcTo(x,y,x+bt.w,y,r);c.closePath();c.fillStyle=bt.id=='del'?'#dc2626':'#2563eb';c.fill();c.strokeStyle='#fff';c.lineWidth=2;c.stroke();c.fillStyle='#fff';c.font='bold 12px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(bt.t,bt.x,bt.y)})}
 function wallOverlay(c,w){if(w.kind=='outer'){const P=p=>[p.x*V.s+V.ox,p.y*V.s+V.oy];c.save();c.setLineDash([5,4]);c.strokeStyle='#2563eb';c.lineWidth=1.5;const[A,B]=wp(w);c.beginPath();c.moveTo(...P(A));c.lineTo(...P(B));c.stroke();c.setLineDash([]);
  [0,1].forEach(i=>{const[x,y]=P(i?B:A),on=drag&&drag.t=='owend'&&drag.isB==i;c.beginPath();c.arc(x,y,on?12:10,0,7);c.fillStyle=on&&drag.snap?'#f59e0b':'#fff';c.fill();c.strokeStyle='#2563eb';c.lineWidth=2.5;c.stroke()});
@@ -479,7 +479,10 @@ function partGeo(){
  PW.forEach(w=>{const{A,L,u,n}=fr(w),half=w.t/2,hin=half-w.bd,E=ends(w),P_=(s,q)=>pt(A,u,n,s,q),
   zf=(e,k,qs)=>e.m=='L'?((qs!=e.inS)?(k=='F'?-hoF(e):-hoI(e)):(e.pr?hoI(e):hoF(e))):e.m=='T'?hoI(e):-e.x,
   zc=e=>e.m=='L'?-hoI(e):e.m=='T'?hoI(e):-e.x;
-  [1,-1].forEach(qs=>['F','I'].forEach(k=>{const q=qs*(k=='F'?half:hin);segs.push({a:P_(zf(E[0],k,qs),q),b:P_(L-zf(E[1],k,qs),q),ty:k,lay:k=='F'?'PARTITION':'PART_BOARD',w})}));
+  [1,-1].forEach(qs=>['F','I'].forEach(k=>{const q=qs*(k=='F'?half:hin);
+    /* 仕上げ面基準の内内寸法用: 面が相手壁の芯面(下地面)まで入り込む端は、相手壁のボード厚ぶん仕上げ面より奥にあるので補正量(ca/cb)を持たせる */
+    const cr=(e,z)=>(k=='F'&&(e.m=='T'||e.m=='L')&&e.o&&Math.abs(z-hoI(e))<1e-6&&hoF(e)>hoI(e))?hoF(e)-hoI(e):0,za=zf(E[0],k,qs),zb=zf(E[1],k,qs),pa=P_(za,q),pb_=P_(L-zb,q);
+    segs.push({a:pa,b:pb_,oa:pa,ob:pb_,ca:cr(E[0],za),cb:cr(E[1],zb),ty:k,lay:k=='F'?'PARTITION':'PART_BOARD',w})}));
   E.forEach((e,i)=>{const sp=z=>i?L-z:z;
    if(e.m=='f'){const s_=sp(-e.x);segs.push({a:P_(s_,-half),b:P_(s_,half),ty:'F',lay:'PARTITION',w})}
    else if(e.m=='T'||e.pr){const s_=sp(hoI(e));(e.m=='T'?[1,-1]:[e.inS]).forEach(qs=>segs.push({a:P_(s_,qs*hin),b:P_(s_,qs*half),ty:'I',lay:'PART_BOARD',w}))}});
@@ -538,6 +541,11 @@ function setLen(w,L){const[A,B]=wp(w),d=L-wl(w);if(!d)return;const k=Math.abs(B.
  if(w.kind=='part'){moveEnd(w,1,s*d);if(w.at)w.at[1]=null;return}
  const cut=B[k];D.pts.forEach(p=>{if((p[k]-cut)*s>=-.5)p[k]+=s*d})}
 function near(p,thr){let b=null;D.walls.forEach(w=>{const[A,B]=wp(w),[d,t]=sg(p,A,B);if(d<thr&&(!b||d<b.d))b={w,d,t,L:wl(w)}});return b}
+/* 建具の配置・ドラッグ用の壁選択: 外周と柱型の線が重なっていても、建具が入る長さのある壁を優先し、現在の壁に留まる(スライド可能にする) */
+function nearOp(p,thr,o){const wd=o?o.wd:(pal?pal[1]:0),cs=[];D.walls.forEach(w=>{const[A,B]=wp(w),[d,t]=sg(p,A,B);if(d<thr)cs.push({w,d,t,L:wl(w)})});if(!cs.length)return null;
+ const ok=cs.filter(c=>c.L>=wd-1),pool=ok.length?ok:cs,md=Math.min(...pool.map(c=>c.d)),hy=Math.max(6/V.s,1),near_=pool.filter(c=>c.d<=md+hy);
+ if(o){const cur=near_.find(c=>c.w.id==o.w);if(cur)return cur}
+ near_.sort((a,b)=>(Math.abs(a.d-b.d)<1e-6?b.L-a.L:a.d-b.d));return near_[0]}
 function og(o){const w=wid(o.w);if(!w)return null;const[A,B]=wp(w),L=wl(w),u={x:(B.x-A.x)/L,y:(B.y-A.y)/L};
  return{w,A,L,u,n:{x:-u.y,y:u.x},p1:{x:A.x+u.x*o.off,y:A.y+u.y*o.off},p2:{x:A.x+u.x*(o.off+o.wd),y:A.y+u.y*(o.off+o.wd)}}}
 const dg=d=>{const w=wid(d.w);if(!w)return null;const[A,B]=wp(w),L=wl(w),n={x:-(B.y-A.y)/L,y:(B.x-A.x)/L};return{w,A,B,L,a:{x:A.x+n.x*d.off,y:A.y+n.y*d.off},b:{x:B.x+n.x*d.off,y:B.y+n.y*d.off}}};
@@ -702,7 +710,11 @@ function faceSpan(w,sd,segs){const g=wN(w);
  if(isG(w)){let lo=1e9,hi=-1e9;(segs||partGeo().segs).forEach(s=>{if(s.w!==w||s.ty!='F')return;
   const da={x:s.a.x-g.A.x,y:s.a.y-g.A.y},db={x:s.b.x-g.A.x,y:s.b.y-g.A.y},qa=da.x*g.n.x+da.y*g.n.y,qb=db.x*g.n.x+db.y*g.n.y;
   if(Math.abs(qa-qb)>1||Math.sign((qa+qb)/2)!=sd)return;
-  const ra=da.x*g.u.x+da.y*g.u.y,rb=db.x*g.u.x+db.y*g.u.y;lo=Math.min(lo,ra,rb);hi=Math.max(hi,ra,rb)});
+  let ra=da.x*g.u.x+da.y*g.u.y,rb=db.x*g.u.x+db.y*g.u.y;
+   /* 内内寸法(実測と同じ仕上げ面〜仕上げ面): 芯面まで入り込んだ端は仕上げ面まで補正 */
+   if(s.ca&&s.oa&&Math.hypot(s.a.x-s.oa.x,s.a.y-s.oa.y)<.5)ra+=s.ca*(ra<=rb?1:-1);
+   if(s.cb&&s.ob&&Math.hypot(s.b.x-s.ob.x,s.b.y-s.ob.y)<.5)rb+=s.cb*(rb>=ra?-1:1);
+   lo=Math.min(lo,ra,rb);hi=Math.max(hi,ra,rb)});
   if(hi>lo)return hi-lo}
  const q=pbq(w,0,0);return Math.hypot(q[1].x-q[0].x,q[1].y-q[0].y)}
 function owMove(d,p){const w=d.o;if(!D.walls.includes(w))return;const[A,B]=wp(w),k=wa(w)==0?'x':'y',s=Math.sign(B[k]-A[k])||1,P=d.isB?B:A,th=14/V.s;
@@ -730,6 +742,26 @@ function laserPick(p){const n=near(p,30/V.s);if(!n){LZ.tgt=null;LZ.msg='';ui();r
  const w=n.w;let sd=1;if(w.kind=='part'){const g=wN(w);sd=((p.x-g.A.x)*g.n.x+(p.y-g.A.y)*g.n.y)>=0?1:-1}
  LZ.seg=null;if(w.kind=='part'){const I=segInfoP(w,sd);if(I.segs.length>1){const q=(p.x-I.g.A.x)*I.g.u.x+(p.y-I.g.A.y)*I.g.u.y;let bi=0,bd=1e18;I.segs.forEach((g,i)=>{const d=q<g.lo?g.lo-q:q>g.hi?q-g.hi:0;if(d<bd){bd=d;bi=i}});LZ.seg=bi}}if(w.kind=='outer'){const I=segInfo(w);if(I&&I.m.length&&I.segs.length){const q=p[I.lk];let bi=0,bd=1e18;I.segs.forEach((g,i)=>{const d=q<g.lo?g.lo-q:q>g.hi?q-g.hi:0;if(d<bd){bd=d;bi=i}});LZ.seg=bi}}
  LZ.tgt=w;LZ.sd=sd;LZ.armed=true;LZ.done=null;LZ.msg='';ui()}
+/* 壁の内内寸法を数値入力して伸縮(レーザー不要)。
+   間仕切り: 選んだ面を、交差する間仕切りとの交点ごとの区間(内内)に分けて入力。区間の先にある交差壁は平行移動し、取り付く間仕切りも一緒に伸縮する。
+   外周壁: 間仕切りとぶつかる部分ごとの区間(間仕切りの内内)に分けて入力。それより先の部分は形を保って平行移動する。 */
+async function wfInput(w,askFace){
+ if(!w||!D.walls.includes(w)){alert('先に壁をタップして選択してください');return}
+ const pt=w.kind=='part';let sd=pt?(WF.sd||1):1;
+ if(pt&&askFace){const labs=[lzLabel(w,1),lzLabel(w,-1)],f0=await ask('間仕切り ─ どちらの面の内内寸法を入力しますか',[{l:'面',v:labs[sd>0?0:1],sel:labs}],0);if(!f0)return;sd=f0[0]==labs[1]?-1:1;WF.sd=sd}
+ const segs=()=>{if(pt){const I=segInfoP(w,sd);return I.segs.length>1?I.segs.map(g=>Math.round(g.hi-g.lo)):null}const I=segInfo(w);return I&&I.m.length&&I.segs.length?I.segs.map(g=>Math.round(g.hi-g.lo)):null};
+ const cur0=segs(),fs=[];
+ let from;if(pt){const g=wN(w);from=dirJ({x:-g.u.x,y:-g.u.y})+'端から'}else{const I=segInfo(w);from=I?(I.lk=='x'?'左端から':'上端から'):''}
+ if(cur0)cur0.forEach((v,i)=>fs.push({l:'区間'+(i+1)+'('+from+') 内内(mm)',v}));
+ else fs.push({l:pt?'この面の内内寸法(mm)':'外周壁の寸法(mm)',v:pt?Math.round(faceSpan(w,sd)):Math.round(wl(w))});
+ const f=await ask((pt?'間仕切り '+lzLabel(w,sd):'外周壁')+' ─ 内内寸法を入力',fs,0);if(!f)return;
+ const vals=f.map(x=>+x);if(vals.some(v=>!(v>0)))return;
+ LZ.tgt=w;LZ.sd=sd;
+ for(let pass=0;pass<3;pass++){
+  const now=segs()||[pt?Math.round(faceSpan(w,sd)):Math.round(wl(w))];let any=false;
+  for(let i=0;i<vals.length;i++){const c=(segs()||now)[i];if(c==null||Math.abs(c-vals[i])<.5)continue;any=true;LZ.seg=cur0?i:null;if(lzApply(w,sd,vals[i])===false)return}
+  if(!any)break}
+ LZ.seg=null;ui();render()}
 async function lzManual(){const w=LZ.tgt;if(!w||!D.walls.includes(w)){alert('先に壁をタップして選択してください');return}
  const pt=w.kind=='part',fs=[],labs=pt?[lzLabel(w,1),lzLabel(w,-1)]:null,v0=s=>lzCur(w,s,s!=LZ.sd);
  if(pt)fs.push({l:'測定面',v:labs[LZ.sd>0?0:1],sel:labs});fs.push({l:'寸法(mm)',v:v0(LZ.sd)});
@@ -925,48 +957,70 @@ function fixProps(it,ax){
  const ok=a.filter(p=>p.dev<=2.5);
  return(ok.length?ok:a).sort((x,y)=>rank(x)-rank(y)||x.dev-y.dev).slice(0,4)}
 /* 入力寸法で始点から辺をたどった図。閉じないズレは赤い点線、手書きの概形は薄い点線で重ねる */
-function svgOf(it,len){
+function svgOf(it,len,vw){
+ vw=vw||{z:1,x:0,y:0};const Z=vw.z||1;
  const E=it.E,n=E.length,W=520,H=340,pd=46,px=74;
  const pt=[{x:0,y:0}];E.forEach((e,i)=>{const q=pt.at(-1),m={x:q.x,y:q.y};m[e.k]+=e.s*len[i];pt.push(m)});
  const o0=it.old[0],old=it.old.map(q=>({x:q.x-o0.x,y:q.y-o0.y})),all=pt.concat(old);
  const xs=all.map(q=>q.x),ys=all.map(q=>q.y),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
  const sc=Math.min((W-2*px)/Math.max(x1-x0,1),(H-2*pd)/Math.max(y1-y0,1)),ox=(W-(x1-x0)*sc)/2,oy=(H-(y1-y0)*sc)/2;
- const X=v=>ox+(v-x0)*sc,Y=v=>oy+(v-y0)*sc,r1=v=>Math.round(v*10)/10;
+ /* 拡大(Z)・移動(vw.x,vw.y)つきの座標変換。文字の大きさは拡大しても一定で、辺が離れるぶん重ならない位置に再配置する */
+ const X=v=>(ox+(v-x0)*sc-W/2)*Z+W/2+vw.x,Y=v=>(oy+(v-y0)*sc-H/2)*Z+H/2+vw.y,r1=v=>Math.round(v*10)/10;
  const cxm=pt.slice(0,n).reduce((a,q)=>a+q.x,0)/n,cym=pt.slice(0,n).reduce((a,q)=>a+q.y,0)/n;
  const chg=i=>Math.abs(len[i]-E[i].L)>=.05,col=i=>chg(i)?'#16a34a':susp(E[i])?'#f59e0b':E[i].en?'#2563eb':'#64748b';
  const halo='paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round';
+ const tw=(t,fs)=>[...t].reduce((a,ch)=>a+(ch.charCodeAt(0)>255?fs:fs*.58),0);
+ const RS=[],ovl=(a,b)=>Math.max(0,Math.min(a.x2,b.x2)-Math.max(a.x1,b.x1))*Math.max(0,Math.min(a.y2,b.y2)-Math.max(a.y1,b.y1));
+ const cost=r=>{let c=0;RS.forEach(q=>c+=ovl(r,q)*10);if(r.x1<2)c+=(2-r.x1)*500;if(r.y1<2)c+=(2-r.y1)*500;if(r.x2>W-2)c+=(r.x2-W+2)*500;if(r.y2>H-2)c+=(r.y2-H+2)*500;return c};
+ const best=cs=>{let b=null;cs.forEach((r,i)=>{const c=cost(r)+(r.pen||0)+i*.001;if(!b||c<b.c)b={c,r}});RS.push(b.r);return b.r};
+ const clip=(ax,ay,bx,by)=>{let t0=0,t1=1;const dx=bx-ax,dy=by-ay,m=4;for(const[p,q]of[[-dx,ax-m],[dx,W-m-ax],[-dy,ay-m],[dy,H-m-ay]]){if(Math.abs(p)<1e-9){if(q<0)return null}else{const t=q/p;if(p<0){if(t>t1)return null;if(t>t0)t0=t}else{if(t<t0)return null;if(t<t1)t1=t}}}return t0<t1?[t0,t1]:null};
  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">`;
  s+=`<polyline points="${old.map(q=>r1(X(q.x))+','+r1(Y(q.y))).join(' ')}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 4"/>`;
- let lab='';
+ let lab='';const EL=[];
  E.forEach((e,i)=>{const a=pt[i],b=pt[i+1],c=col(i),ax=X(a.x),ay=Y(a.y),bx=X(b.x),by=Y(b.y),mx=(ax+bx)/2,my=(ay+by)/2;
   s+=`<line x1="${r1(ax)}" y1="${r1(ay)}" x2="${r1(bx)}" y2="${r1(by)}" stroke="${c}" stroke-width="${chg(i)?5:4}" stroke-linecap="round"/>`;
-  const ux=e.k=='x'?e.s:0,uy=e.k=='y'?e.s:0,px=-uy,py=ux;
-  s+=`<polygon points="${r1(mx+ux*8)},${r1(my+uy*8)} ${r1(mx-ux*5+px*6)},${r1(my-uy*5+py*6)} ${r1(mx-ux*5-px*6)},${r1(my-uy*5-py*6)}" fill="${c}"/>`;
-  const t=CNUM(i)+' '+mmf(len[i])+(susp(e)&&!chg(i)?' ⚠':''),w=t.length*7.4+10;
-  const lx=Math.max(w/2+3,Math.min(W-w/2-3,e.k=='x'?mx:mx+(mx>=X(cxm)?1:-1)*(w/2+10))),ly=Math.max(13,Math.min(H-13,e.k=='x'?my+(my>=Y(cym)?1:-1)*17:my));
-  lab+=`<rect x="${r1(lx-w/2)}" y="${r1(ly-10)}" width="${r1(w)}" height="20" rx="4" fill="#fff" stroke="${c}" stroke-width="1.5"/><text x="${r1(lx)}" y="${r1(ly+5)}" font-size="13" text-anchor="middle" fill="#0f172a">${t}</text>`});
+  const ux=e.k=='x'?e.s:0,uy=e.k=='y'?e.s:0,px=-uy,py=ux,cp=clip(mx,my,mx,my);
+  if(mx>=4&&mx<=W-4&&my>=4&&my<=H-4)s+=`<polygon points="${r1(mx+ux*8)},${r1(my+uy*8)} ${r1(mx-ux*5+px*6)},${r1(my-uy*5+py*6)} ${r1(mx-ux*5-px*6)},${r1(my-uy*5-py*6)}" fill="${c}"/>`;
+  EL.push({i,a:{x:ax,y:ay},b:{x:bx,y:by},c,mx,my,L:Math.hypot(bx-ax,by-ay)})});
+ /* 1) 「ここで閉じない」「ズレ」と始点の文字を先に置く */
+ const clp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
  const gx=pt[n].x-pt[0].x,gy=pt[n].y-pt[0].y;
  if(Math.hypot(gx,gy)>=.5){const ex=X(pt[n].x),ey=Y(pt[n].y),sx=X(0),sy=Y(0);
   s+=`<line x1="${r1(ex)}" y1="${r1(ey)}" x2="${r1(sx)}" y2="${r1(sy)}" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/>`;
   s+=`<circle cx="${r1(ex)}" cy="${r1(ey)}" r="7" fill="#dc2626"/>`;
   const gt=[Math.abs(gx)>=.5?'横 '+mmf(Math.abs(gx)):'',Math.abs(gy)>=.5?'縦 '+mmf(Math.abs(gy)):''].filter(Boolean).join(' / ');
-  lab+=`<text x="${r1(Math.min(ex,W-120))}" y="${r1(ey-30)}" font-size="13" font-weight="bold" fill="#dc2626" style="${halo}">✕ ここで閉じない</text><text x="${r1(Math.min(ex,W-120))}" y="${r1(ey-14)}" font-size="13" font-weight="bold" fill="#dc2626" style="${halo}">ズレ ${gt} mm</text>`}
+  const t1='✕ ここで閉じない',t2='ズレ '+gt+' mm',wT=Math.max(tw(t1,13),tw(t2,13))+8,hT=34,qx=clp(ex,6,W-6),qy=clp(ey,6,H-6);
+  const cs=[[10,-hT-8],[-wT-10,-hT-8],[10,10],[-wT-10,10],[-wT/2,-hT-12],[-wT/2,12],[10,-hT/2],[-wT-10,-hT/2]].map(([dx,dy])=>({x1:qx+dx,y1:qy+dy,x2:qx+dx+wT,y2:qy+dy+hT}));
+  const r=best(cs);lab+=`<text x="${r1(r.x1+4)}" y="${r1(r.y1+14)}" font-size="13" font-weight="bold" fill="#dc2626" style="${halo}">${t1}</text><text x="${r1(r.x1+4)}" y="${r1(r.y1+30)}" font-size="13" font-weight="bold" fill="#dc2626" style="${halo}">${t2}</text>`}
  s+=`<circle cx="${r1(X(0))}" cy="${r1(Y(0))}" r="6" fill="#16a34a" stroke="#fff" stroke-width="2"/>`;
- lab+=`<text x="${r1(X(0)-9)}" y="${r1(Y(0)-9)}" font-size="13" font-weight="bold" fill="#16a34a" text-anchor="end" style="${halo}">始点</text>`;
+ {const sx=clp(X(0),6,W-6),sy=clp(Y(0),6,H-6),wS=tw('始点',13)+4,hS=16,cs=[[-wS-9,-hS-6],[9,-hS-6],[-wS-9,8],[9,8]].map(([dx,dy])=>({x1:sx+dx,y1:sy+dy,x2:sx+dx+wS,y2:sy+dy+hS}));
+  const r=best(cs);lab+=`<text x="${r1(r.x1+2)}" y="${r1(r.y1+13)}" font-size="13" font-weight="bold" fill="#16a34a" style="${halo}">始点</text>`}
+ /* 2) 辺の寸法ラベル: 長い辺から順に、他のラベルと重ならない位置を探して置く(重なるときは少し離して引出線でつなぐ) */
+ EL.sort((p,q)=>q.L-p.L).forEach(d=>{const i=d.i,e=E[i],c=d.c,t=CNUM(i)+' '+mmf(len[i])+(susp(e)&&!chg(i)?' ⚠':''),w=tw(t,13)+12,h=20,hz=e.k=='x';
+  const cp=clip(d.a.x,d.a.y,d.b.x,d.b.y);if(!cp)return;
+  const mx=d.a.x+(d.b.x-d.a.x)*(cp[0]+cp[1])/2,my=d.a.y+(d.b.y-d.a.y)*(cp[0]+cp[1])/2;
+  const pref=hz?(my>=Y(cym)?1:-1):(mx>=X(cxm)?1:-1),cs=[];
+  for(let j=0;j<4;j++)for(const sd of[pref,-pref])for(const k of[0,1,-1,2,-2,3,-3]){
+   const off=hz?(h/2+7+j*(h+4)):(w/2+8+j*(w+6)),sh=k*(hz?(w*.6+6):(h+6));
+   const lx=hz?mx+sh:mx+sd*off,ly=hz?my+sd*off+(0):my+sh;
+   cs.push({x1:lx-w/2,y1:ly-h/2,x2:lx+w/2,y2:ly+h/2,lx,ly,j,k,pen:j*6+Math.abs(k)*3+(sd==pref?0:2)})}
+  const r=best(cs);
+  if(r.j>0||r.k!=0)lab+=`<line x1="${r1(mx)}" y1="${r1(my)}" x2="${r1(r.lx)}" y2="${r1(r.ly)}" stroke="${c}" stroke-width="1" opacity=".7"/>`;
+  lab+=`<rect x="${r1(r.x1)}" y="${r1(r.y1)}" width="${r1(w)}" height="${h}" rx="4" fill="#fff" stroke="${c}" stroke-width="1.5"/><text x="${r1(r.lx)}" y="${r1(r.ly+5)}" font-size="13" text-anchor="middle" fill="#0f172a">${t}</text>`});
  return s+lab+'</svg>'}
 function closeDlg(items){return new Promise(done=>{
- const S=items.map(it=>({it,len:it.E.map(e=>e.L),L0:it.E.map(e=>e.L),pr:{x:fixProps(it,'x'),y:fixProps(it,'y')},ok:false}));
+ const S=items.map(it=>({it,vw:{z:1,x:0,y:0},len:it.E.map(e=>e.L),L0:it.E.map(e=>e.L),pr:{x:fixProps(it,'x'),y:fixProps(it,'y')},ok:false}));
  const need=(s,ax)=>Math.abs(resid(s.it.E,s.L0,ax))>=.5,AX=['x','y'];
  const hasRec=S.every(s=>AX.every(ax=>!need(s,ax)||s.pr[ax].length));
  const ov=document.createElement('div');ov.id='cd';
  ov.innerHTML=`<div class="bx"><h3>⚠ 入力した寸法では外周が閉じません</h3><div class="h">外周が閉じるには、<b>右向きの辺の合計＝左向きの辺の合計</b>、<b>下向きの辺の合計＝上向きの辺の合計</b>になる必要があります。下の図は、入力した寸法で始点(緑)から辺をたどったもので、<b style="color:#dc2626">赤い点線が閉じないズレ</b>です。</div>`
-  +S.map((s,k)=>`<div class="sec"><b>${S.length>1?'外周'+(k+1)+' ─ ':''}どこが合わないか</b><div class="sv"></div><div class="lg"><span><i style="border-color:#2563eb"></i>入力した寸法</span><span><i style="border-color:#64748b"></i>未入力(図面の長さ)</span><span><i style="border-color:#f59e0b"></i>概形と大きく違う入力</span><span><i style="border-color:#16a34a"></i>修正案で変更した辺</span><span><i style="border-color:#94a3b8;border-top-width:2px;border-top-style:dashed"></i>手書きの概形</span></div><div class="cz"></div><div class="pp"></div><b style="font-size:12px">辺ごとの寸法(直接直すこともできます)</b><div class="eg"></div></div>`).join('')
+  +S.map((s,k)=>`<div class="sec"><b>${S.length>1?'外周'+(k+1)+' ─ ':''}どこが合わないか</b><div class="zb"><button type="button" data-z="in">＋ 拡大</button><button type="button" data-z="out">－ 縮小</button><button type="button" data-z="rs">全体表示</button><small>ピンチ・ホイールで拡大、ドラッグで移動(拡大すると文字が重ならないよう自動で配置し直します)</small></div><div class="sv"></div><div class="lg"><span><i style="border-color:#2563eb"></i>入力した寸法</span><span><i style="border-color:#64748b"></i>未入力(図面の長さ)</span><span><i style="border-color:#f59e0b"></i>概形と大きく違う入力</span><span><i style="border-color:#16a34a"></i>修正案で変更した辺</span><span><i style="border-color:#94a3b8;border-top-width:2px;border-top-style:dashed"></i>手書きの概形</span></div><div class="cz"></div><div class="pp"></div><b style="font-size:12px">辺ごとの寸法(直接直すこともできます)</b><div class="eg"></div></div>`).join('')
   +`<div class="r"><button id="cdn">キャンセル</button><button id="cdr">入力どおりに戻す</button><button id="cdg" class="on">この寸法で外周壁生成</button>${hasRec?'<button id="cdq" class="on" style="background:#059669;border-color:#059669">⭐おすすめ案で外周壁生成</button>':''}</div></div>`;
  document.body.appendChild(ov);
  const sec=k=>ov.querySelectorAll('.sec')[k],fin=v=>{ov.remove();done(v)};
  const upd=k=>{const s=S[k],E=s.it.E,q=c=>sec(k).querySelector(c);
   s.ok=AX.every(ax=>Math.abs(resid(E,s.len,ax))<.5);
-  q('.sv').innerHTML=svgOf(s.it,s.len);
+  q('.sv').innerHTML=svgOf(s.it,s.len,s.vw);
   let h='';
   AX.forEach(ax=>{const J=AXJ[ax],r=resid(E,s.len,ax),bad=Math.abs(r)>=.5,
    P=E.map((e,i)=>e.k==ax&&e.s>0?i:-1).filter(i=>i>=0),M=E.map((e,i)=>e.k==ax&&e.s<0?i:-1).filter(i=>i>=0),
@@ -985,6 +1039,18 @@ function closeDlg(items){return new Promise(done=>{
   q('.pp').innerHTML=ph;
   [...q('.eg').children].forEach((lb,i)=>{const inp=lb.querySelector('input');lb.classList.toggle('ch',Math.abs(s.len[i]-E[i].L)>=.05);if(document.activeElement!==inp){inp.value=mmf(s.len[i]);inp.style.background=''}});
   ov.querySelector('#cdg').disabled=!S.every(x=>x.ok)};
+ /* ズレ図の拡大・移動: ボタン / ホイール / ピンチ / ドラッグ */
+ const VW=520,VH=340,rsv=k=>{sec(k).querySelector('.sv').innerHTML=svgOf(S[k].it,S[k].len,S[k].vw)};
+ const zoomAt=(k,f,nz)=>{const v=S[k].vw;nz=Math.max(1,Math.min(14,nz));const r=nz/v.z,cx=VW/2+v.x,cy=VH/2+v.y;v.x=f.x-(f.x-cx)*r-VW/2;v.y=f.y-(f.y-cy)*r-VH/2;v.z=nz;if(nz<=1.001){v.z=1;v.x=0;v.y=0}else{v.x=Math.max(-VW*nz/2,Math.min(VW*nz/2,v.x));v.y=Math.max(-VH*nz/2,Math.min(VH*nz/2,v.y))}rsv(k)};
+ S.forEach((s,k)=>{const box=sec(k),sv=box.querySelector('.sv'),ptrs=new Map();let pd0=0;
+  const vb=(ev)=>{const g=sv.querySelector('svg');if(!g)return{x:VW/2,y:VH/2,k:1};const r=g.getBoundingClientRect(),c=Math.min(r.width/VW,r.height/VH),ofx=(r.width-VW*c)/2,ofy=(r.height-VH*c)/2;return{x:(ev.clientX-r.left-ofx)/c,y:(ev.clientY-r.top-ofy)/c,k:c}};
+  box.querySelector('.zb').onclick=ev=>{const b=ev.target.closest('button[data-z]');if(!b)return;const z=b.dataset.z,c={x:VW/2,y:VH/2};if(z=='rs'){s.vw.z=1;s.vw.x=0;s.vw.y=0;rsv(k)}else zoomAt(k,c,s.vw.z*(z=='in'?1.6:1/1.6))};
+  sv.addEventListener('wheel',ev=>{ev.preventDefault();zoomAt(k,vb(ev),s.vw.z*Math.exp(-ev.deltaY*.0016))},{passive:false});
+  sv.addEventListener('pointerdown',ev=>{try{sv.setPointerCapture(ev.pointerId)}catch(e){}ptrs.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});if(ptrs.size==2){const[p,q]=[...ptrs.values()];pd0=Math.hypot(p.x-q.x,p.y-q.y)}});
+  sv.addEventListener('pointermove',ev=>{if(!ptrs.has(ev.pointerId))return;const o=ptrs.get(ev.pointerId),n={x:ev.clientX,y:ev.clientY};
+   if(ptrs.size==1){const c=vb(ev).k||1;if(s.vw.z>1){s.vw.x+=(n.x-o.x)/c;s.vw.y+=(n.y-o.y)/c;const v=s.vw;v.x=Math.max(-VW*v.z/2,Math.min(VW*v.z/2,v.x));v.y=Math.max(-VH*v.z/2,Math.min(VH*v.z/2,v.y));ptrs.set(ev.pointerId,n);rsv(k)}else ptrs.set(ev.pointerId,n)}
+   else if(ptrs.size==2){ptrs.set(ev.pointerId,n);const[p,q]=[...ptrs.values()],d=Math.hypot(p.x-q.x,p.y-q.y);if(pd0>0&&d>0){zoomAt(k,vb({clientX:(p.x+q.x)/2,clientY:(p.y+q.y)/2}),s.vw.z*d/pd0);pd0=d}}});
+  const up=ev=>{ptrs.delete(ev.pointerId);pd0=0};sv.addEventListener('pointerup',up);sv.addEventListener('pointercancel',up)});
  S.forEach((s,k)=>{const eg=sec(k).querySelector('.eg');
   eg.innerHTML=s.it.E.map((e,i)=>`<label>${CNUM(i)} ${AXJ[e.k][e.s>0?'p':'m']}向き<input value="${mmf(e.L)}" inputmode="decimal"> mm${e.en?'':'<small>(未入力)</small>'}</label>`).join('');
   [...eg.querySelectorAll('input')].forEach((inp,i)=>inp.oninput=()=>{const v=parseFloat(hw2(inp.value));if(v>0){s.len[i]=v;inp.style.background=''}else inp.style.background='#fee2e2';upd(k)});
@@ -1237,7 +1303,7 @@ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const p=W(e),th=(e.pointe
  dn={sx:e.offsetX,sy:e.offsetY,p,mv:0,ox:V.ox,oy:V.oy};drag=null;
  if(tool=='pan')drag={t:'pan'};else if(tool=='mvall')drag={t:'all',lx:p.x,ly:p.y};
  else if(tool=='outer'||(tool=='part'&&pmode=='hand')){stk=[p];if(otl=='erase'){stk.er=1;stk.sn=oSnap();stk.ch=oErase(p,p)?1:0;ocur=p;render()}}
- else if(tool=='open'&&pal)ghost=near(p,40/V.s);
+ else if(tool=='open'&&pal)ghost=nearOp(p,40/V.s,null);
  else if(tool=='dim'){if(sel&&sel.dg){const bt=dimBtns(sel.dg).find(b=>Math.abs(e.offsetX-b.x)<=b.w/2&&Math.abs(e.offsetY-b.y)<=b.h/2);if(bt){dn=null;drag=null;dimAct(bt.id);return}}{const eh=extPick(p,th);if(eh){drag=eh;return}}let isNew=0,d=hitDim(p,th*2);if(!d){const n=near(p,th*2);if(n){const sd=dmode=='seg'?segDimPick(n.w,p):null;if(sd){d=D.dims.find(x=>x.t=='pp'&&x.ax==sd.ax&&((x.p==sd.i&&x.q==sd.j)||(x.p==sd.j&&x.q==sd.i)));if(!d){save();d={id:D.n++,t:'pp',p:sd.i,q:sd.j,ax:sd.ax,pos:sd.pos};D.dims.push(d);isNew=1}}else{d=D.dims.find(x=>x.t=='pp'?((x.p==n.w.a&&x.q==n.w.b)||(x.p==n.w.b&&x.q==n.w.a)):x.w==n.w.id);if(!d){save();d={id:D.n++,w:n.w.id,off:600};D.dims.push(d);isNew=1}}}}if(d)drag={t:'dim',o:d,tx:0,g:dimGrab(d,p,0,isNew),set:[d]};else if(sel&&sel.dg){sel=null;dn=null;render()}}
  else if(tool=='shape'&&sel&&SHP().includes(sel.o)){if(!shapePick(p,th)){sel=null;dn=null;render()}}
  else if((tool=='shape'||(tool=='eq'&&shp&&shp.startsWith('sym:')))&&shp){save();const s={id:D.n++,t:shp.startsWith('sym:')?'rect':shp,sym:shp.startsWith('sym:')?shp.slice(4):undefined,x1:p.x,y1:p.y,x2:p.x,y2:p.y,text:'',size:250,bump:300};SHP().push(s);sel={o:s};drag={t:'mk',o:s}}
@@ -1269,13 +1335,13 @@ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const p=W(e),th=(e.pointe
   sel=null;render()}};
 cv.onpointermove=e=>{if(!dn){if(tool=='part'&&pmode!='hand'){if(pdrag){const mx=e.offsetX-pdrag.sx,my=e.offsetY-pdrag.sy;if(Math.hypot(mx,my)>3)pdrag.mv=1;cur=pdrag.pen?W(e):{x:pdrag.cx+mx/V.s,y:pdrag.cy+my/V.s};clampCur();hov=cur;render()}else if(e.pointerType=='mouse'){cur=W(e);hov=cur;render()}return}if(tool=='meas'){hov=W(e);render()}if((tool=='outer'||tool=='part')&&otl=='erase'){ocur=W(e);render()}return}const p=W(e);
  if(!dn.mv&&Math.hypot(e.offsetX-dn.sx,e.offsetY-dn.sy)>(drag&&(drag.t=='dim'||drag.t=='ext')?3:6)){dn.mv=1;if(drag&&['hd','op','mv','dim','all','area','wend','wbody','owend','ext'].includes(drag.t))save()}
- if(stk){if(stk.er){const a_=stk.at(-1);if(oErase(a_,p))stk.ch=1;stk.length=0;stk.push(p);ocur=p}else stk.push(p)}if(ghost!==null&&tool=='open')ghost=near(p,40/V.s);
+ if(stk){if(stk.er){const a_=stk.at(-1);if(oErase(a_,p))stk.ch=1;stk.length=0;stk.push(p);ocur=p}else stk.push(p)}if(ghost!==null&&tool=='open')ghost=nearOp(p,40/V.s,null);
  if(drag){const t=drag.t,o=drag.o;
   if(t=='pan'){V.ox=dn.ox+e.offsetX-dn.sx;V.oy=dn.oy+e.offsetY-dn.sy}
   else if(t=='area'&&dn.mv){o.lx=p.x;o.ly=p.y}
   else if(t=='all'){let dx=p.x-drag.lx,dy=p.y-drag.ly;const b=bounds();if(b&&inFrame()){const S=meta.sc;dx=Math.max(9*S-b.x0,Math.min(411*S-b.x1,dx));dy=Math.max(9*S-b.y0,Math.min(269*S-b.y1,dy))}shiftAll(dx,dy);drag.lx=p.x;drag.ly=p.y}
   else if(t=='dim'&&(dn.mv||tool=='dim')){if(o.t=='pp'){if(drag.tx)o.tp=snapDim(o,dimProj(o,p,1)+drag.g,true);else{SNX=drag.set||null;const np=snapDim(o,dimProj(o,p,0)+drag.g,false);SNX=null;const dl=np-o.pos,st_=drag.set||[o];st_.forEach(x=>{if(x.t=='pp'&&x.ax==o.ax)x.pos+=dl});if(!st_.includes(o))o.pos=np}}else{const g=dg(o);if(g){o.off=dimProj(o,p,0)+drag.g;const g2=dg(o),hz=Math.abs(g2.B.x-g2.A.x)>=Math.abs(g2.B.y-g2.A.y),cur=hz?g2.a.y:g2.a.x,sn=snapDim(o,cur,false),np=hz?(g2.B.x-g2.A.x)/g2.L:-(g2.B.y-g2.A.y)/g2.L;if(sn!=cur&&Math.abs(np)>.5)o.off+=(sn-cur)/np}}}
-  else if(t=='op'&&dn.mv){const n=near(p,40/V.s);if(n){o.w=n.w.id;o.off=Math.max(0,Math.min(n.t*n.L-o.wd/2,Math.max(0,n.L-o.wd)))}}
+  else if(t=='op'&&dn.mv){const n=nearOp(p,40/V.s,o);if(n){o.w=n.w.id;o.off=Math.max(0,Math.min(n.t*n.L-o.wd/2,Math.max(0,n.L-o.wd)))}}
    else if(t=='ext'&&dn.mv){extDrag(drag,p)}
    else if(t=='wend'&&dn.mv){moveTerm(drag,p)}
    else if(t=='wbody'&&dn.mv){slideWall(drag,p)}
@@ -1373,8 +1439,8 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
    if(D.walls.some(w=>w.on))bt('↔ 内外反転',oFlip,'',false,'直前に確定した開いた外壁の、PB・下地を付ける側を反対にします');
    penCol(s,'o');h(HINT.outer)}
   else if(tool=='wfit'){const w=sel&&sel.wl&&D.walls.includes(sel.wl)?sel.wl:null;
-   if(w&&w.kind=='part')[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{WF.sd=sd;ui();render()},WF.sd==sd?'on':''));
-   h(w?'壁端の○をドラッグして伸縮 ─ 壁の寸法表示が連動して変わります(数値入力はありません)':HINT.wfit)}
+   if(w&&w.kind=='part')[1,-1].forEach(sd=>sbBtn(s,lzLabel(w,sd),()=>{WF.sd=sd;ui();render()},WF.sd==sd?'on':''));if(w)sbBtn(s,'✎ 内内寸法を入力',()=>wfInput(w,false),'ok');
+   h(w?'壁端の○をドラッグして伸縮、または「✎ 内内寸法を入力」で数値入力 ─ 交差する壁も一緒に伸縮します':HINT.wfit)}
   else if(tool=='laser'){const cn=!!(LZ.dev&&LZ.dev.gatt&&LZ.dev.gatt.connected);
   sbBtn(s,cn?'📡 切断':'📡 距離計に接続',cn?laserDisc:laserConnect,cn?'':'ok');h(LZ.st+(cn?'('+LZ.name+')':''));if(cn&&LZ.ch){sbBtn(s,'▶ 測定要求を送る',async()=>{await lzSync([0xC0,0x40,0x00,0xEE]);LZ.st='測定要求送信'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});}if(cn&&LZ.ch)sbBtn(s,'⟳ 同期コマンド再送',async()=>{await lzSync();LZ.st='同期コマンド再送'+(LZ.wrOk?'OK':'失敗'+(LZ.wrErr?':'+LZ.wrErr:''));ui()});
   if(LZ.tgt&&D.walls.includes(LZ.tgt)){const w=LZ.tgt;
