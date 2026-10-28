@@ -698,7 +698,7 @@ function lzApply(w,sd,val){val=Math.round(val);if(!(val>=50)){LZ.msg='値が不�
  const lab=lzLabel(w,sd);save();const LK=linkSnap(x=>x===w);
  if(w.kind=='outer'&&LZ.seg!=null){if(!segApply(w,LZ.seg,val)){LZ.msg='区間を特定できませんでした';return false}LZ.msg=lab+' 区間'+(LZ.seg+1)+' '+val+' mm を反映しました(これより先の部分は平行移動)';linkFix(LK);commit()}
  else if(w.kind=='part'&&LZ.seg!=null){if(!segApplyP(w,sd,LZ.seg,val)){LZ.msg='区間を特定できませんでした';return false}LZ.msg=lab+' 区間'+(LZ.seg+1)+' '+val+' mm を反映しました(交点の壁を平行移動)';linkFix(LK);commit()}
- else if(w.kind=='outer'){if(val!=Math.round(wl(w)))setLen(w,val);w.fix=1;LZ.msg=lab+' '+val+' mm を反映しました';linkFix(LK);commit()}
+ else if(w.kind=='outer'){if(val==Math.round(wl(w)))delete w.pd;else w.pd=val;LZ.msg=lab+' '+val+' mm を記録しました(全辺入力後に「外周壁生成」で図面へ反映)';commit()}
  else{w.ms=w.ms||{};w.ms[sd>0?'p':'m']=val;w.fix=1;let rec=false,note='';
   if(Math.abs(val-faceSpan(w,sd))>=.5){const aA=!!(w.at&&w.at[0]),aB=!!(w.at&&w.at[1]);
    if(aA&&aB&&!confirm('この間仕切りは両端が外周壁に取り付いています。\n長さを変えると取付が外れます。図面を実測値に合わせますか?\n(キャンセル=実測値の記録のみ・図面は変更しません)'))rec=true;
@@ -771,7 +771,7 @@ function draw(c,V,k,ui,pdf){
    const E_=extPts(d,g);c.beginPath();c.moveTo(...S(E_[0][0]));c.lineTo(...S(E_[0][1]));c.moveTo(...S(E_[1][0]));c.lineTo(...S(E_[1][1]));c.moveTo(...a);c.lineTo(...b);
    c.stroke();for(const q of[a,b]){c.beginPath();c.arc(q[0],q[1],3*k,0,7);c.fill()}
    let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.abs(ang)>Math.PI/2)ang+=Math.PI;if(Math.abs(Math.sin(ang))>.9)ang=-Math.PI/2;/* 縦寸法は常に下→上読み */
-   let oy=-8*k;if(Math.abs(Math.sin(ang))>.9){const dxs=g.a.x<_bx?-1:1;oy=-dxs*8*k/Math.sin(ang)}c.save();c.translate(T[0],T[1]);c.rotate(ang);c.font=`${12*k}px sans-serif`;c.fillText(Math.round(g.L),0,oy);c.restore();
+   let oy=-8*k;if(Math.abs(Math.sin(ang))>.9){const dxs=g.a.x<_bx?-1:1;oy=-dxs*8*k/Math.sin(ang)}c.save();c.translate(T[0],T[1]);c.rotate(ang);c.font=`${12*k}px sans-serif`;{const pd_=g.w&&g.w.kind=='outer'&&g.w.pd?g.w.pd:0;if(pd_){c.fillStyle='#ea580c';c.font='bold '+(12*k)+'px sans-serif';c.fillText(Math.round(pd_)+' *',0,oy)}else c.fillText(Math.round(g.L),0,oy)}c.restore();
    if(ui&&(tool=='sel'||tool=='dim')){c.save();c.lineWidth=1.5;c.fillStyle='#fff';c.strokeStyle='#2563eb';const m=[a[0]+(b[0]-a[0])*.2,a[1]+(b[1]-a[1])*.2];c.beginPath();c.rect(m[0]-6,m[1]-6,12,12);c.fill();c.stroke();if(d.t=='pp'){c.strokeStyle='#16a34a';c.beginPath();c.arc(T[0],T[1],6,0,7);c.fill();c.stroke()}c.restore()}});
   D.meas.forEach(m=>{const a=S({x:m.x1,y:m.y1}),b=S({x:m.x2,y:m.y2});c.strokeStyle=c.fillStyle='#047857';c.lineWidth=1.2*k;c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();for(const q of[a,b]){c.beginPath();c.arc(q[0],q[1],3*k,0,7);c.fill()}
    let ang=Math.atan2(b[1]-a[1],b[0]-a[0]);if(Math.abs(ang)>Math.PI/2)ang+=Math.PI;c.save();c.translate((a[0]+b[0])/2,(a[1]+b[1])/2);c.rotate(ang);c.font=`${12*k}px sans-serif`;c.fillText('実測 '+Math.round(m.val),0,-8*k);c.restore()});
@@ -822,12 +822,12 @@ function ask(title,fs,del,on){return new Promise(r=>{$('bt').textContent=title;c
  const els=[...f.querySelectorAll('input,select')];if(on)els.forEach((e,i)=>e.oninput=()=>on(els,i));
  $('md').style.display='flex';$('del').style.display=del?'':'none';const done=v=>{$('md').style.display='none';r(v)};
  $('ok').onclick=()=>done(els.map(e=>e.value));$('del').onclick=()=>done('del');$('ng').onclick=()=>done(null);if(els[0]&&!fs[0].sel)els[0].focus()})}
-async function wallM(w){const L=Math.round(wl(w)),pt=w.kind=='part',PSL=['LGS45','LGS65','LGS75','LGS90','LGS100','その他'],OSL=['既定に従う','PBのみ','LGS45','LGS65','LGS90','GL','鉄骨胴縁100幅'],STL=['既定に従う','コンクリート','ALC','鉄骨'],fs=[{l:'壁の長さ(mm)',v:L}];
+async function wallM(w){const L=Math.round(wl(w)),pt=w.kind=='part',PSL=['LGS45','LGS65','LGS75','LGS90','LGS100','その他'],OSL=['既定に従う','PBのみ','LGS45','LGS65','LGS90','GL','鉄骨胴縁100幅'],STL=['既定に従う','コンクリート','ALC','鉄骨'],fs=[{l:pt?'壁の長さ(mm)':'壁の寸法(mm) ※実寸は「外周壁生成」で反映',v:(!pt&&w.pd)||L}];
   if(pt)fs.push({l:'下地',v:w.sub,sel:PSL},{l:'ボード厚(両面・mm)',v:w.bd||12.5,sel:['9.5','12.5']},{l:'壁厚(mm)',v:w.t},{l:'適用',v:'この壁のみ',sel:['この壁のみ','間仕切りすべて']},{l:'寸法線',v:'そのまま',sel:['そのまま','挿入']});
   else fs.push({l:'躯体(外壁)',v:w.st||'既定に従う',sel:STL},{l:'下地',v:w.os||'既定に従う',sel:OSL},{l:'GL: ボード内面〜躯体(mm)',v:w.gl||D.cfg.gl,sel:['20','25','30','35']},{l:'適用',v:'この壁のみ',sel:['この壁のみ','外周すべて']},{l:'寸法線',v:'そのまま',sel:['そのまま','挿入']});
   const f=await ask(pt?'間仕切り壁':'外周壁',fs,1,pt?(e,i)=>{if((i==1||i==2)&&e[1].value!='その他')e[3].value=thk(e[1].value,+e[2].value)}:(e,i)=>{if(i==1){const m={'コンクリート':'GL','ALC':'GL','鉄骨':'鉄骨胴縁100幅'}[e[1].value];if(m)e[2].value=m}});if(!f)return;save();
   if(f=='del'){D.walls=D.walls.filter(x=>x!=w);D.ops=D.ops.filter(o=>o.w!=w.id);D.dims=D.dims.filter(o=>o.w!=w.id)}
-  else{const n=+f[0];if(n>0){const LK=linkSnap(x=>x===w);if(Math.round(n)!=L)setLen(w,n);linkFix(LK);w.fix=1}
+  else{const n=+f[0];if(n>0){if(w.kind=='outer'){if(Math.round(n)==L)delete w.pd;else w.pd=Math.round(n)}else{const LK=linkSnap(x=>x===w);if(Math.round(n)!=L)setLen(w,n);linkFix(LK);w.fix=1}}
    if(pt)D.walls.filter(x=>f[4]=='この壁のみ'?x==w:x.kind=='part').forEach(x=>{const o=f[1]=='その他';x.sub=f[1];x.bd=o?0:+f[2];x.t=o?(+f[3]||100):thk(f[1],+f[2])});
    else D.walls.filter(x=>f[4]=='この壁のみ'?x==w:x.kind=='outer').forEach(x=>{if(f[1]=='既定に従う')delete x.st;else x.st=f[1];if(f[2]=='既定に従う')delete x.os;else x.os=f[2];if(f[2]=='GL')x.gl=+f[3]})}
     if(f!='del'&&f[5]=='挿入')addWallDim(w);commit()}
@@ -884,6 +884,47 @@ async function batchDim(){prepOut();const os=D.walls.filter(w=>w.kind=='outer');
  if(f[1]=='表示する')runs.forEach(r=>{const w=r[0],ax=wa(w)==0?'x':'y',ids=[...new Set(r.flatMap(x=>[x.a,x.b]))],cv=i=>ax=='x'?D.pts[i].x:D.pts[i].y,mn=ids.reduce((a,b)=>cv(b)<cv(a)?b:a),mx=ids.reduce((a,b)=>cv(b)>cv(a)?b:a);tg(addPP(mn,mx,ax,base(w)+sgn(w)*(off+1200),1))});
  if(f[2]=='表示する')D.walls.filter(w=>w.kind=='part').forEach(w=>tg(addWallDim(w)));
  commit()}
+/* ---- 外周壁生成: 外周壁に記録した寸法(pd)で外周を組み直す ----
+   外周のアウトラインは概形なので、寸法を入力しても図面の長さはすぐには変えない(pdに記録)。
+   全辺の実寸を入力してからこのボタンで、記録した寸法どおりに直線・直角の外周を組み直す。
+   外周の内側にある間仕切り等の点は、外周の伸縮に合わせて比例配置する。 */
+function outerRebuild(){
+ const os=D.walls.filter(w=>w.kind=='outer');
+ if(!os.length){alert('外周壁がありません');return}
+ if(!os.some(w=>w.pd>0)){alert('外周壁の寸法が入力されていません。\n外周壁を選んで「寸法・仕様」(または寸法線の寸法値)で各辺の実寸法を入力してから押してください');return}
+ const byA=new Map(),hasPrev=new Set(),used=new Set(),chains=[];
+ os.forEach(w=>{byA.set(w.a,w);hasPrev.add(w.b)});
+ const walk=w0=>{const c=[];let w=w0;while(w&&!used.has(w)){used.add(w);c.push(w);w=byA.get(w.b)}return c};
+ os.filter(w=>!hasPrev.has(w.a)).forEach(w=>{if(!used.has(w))chains.push(walk(w))});
+ os.forEach(w=>{if(!used.has(w))chains.push(walk(w))});
+ const plans=[],miss=[0,0];let adj=false;
+ for(const c of chains){
+  const cl=c.length>2&&c.at(-1).b===c[0].a,P0=D.pts[c[0].a];
+  const E=c.map(w=>{const A=D.pts[w.a],B=D.pts[w.b],k=Math.abs(B.x-A.x)>=Math.abs(B.y-A.y)?'x':'y';return{w,k,s:Math.sign(B[k]-A[k])||1,L:w.pd>0?w.pd:Math.abs(B[k]-A[k])}});
+  if(cl)['x','y'].forEach((ax,ai)=>{
+   const r=E.reduce((a,e)=>a+(e.k==ax?e.s*e.L:0),0);if(Math.abs(r)<.5)return;
+   const cand=E.filter(e=>e.k==ax&&!e.w.pd),pool=cand.length?cand:E.filter(e=>e.k==ax);if(!pool.length)return;
+   const e=pool.reduce((a,b)=>b.L>a.L?b:a);e.nl=e.L-r*e.s;miss[ai]+=Math.abs(r);adj=true});
+  for(const e of E){if(e.nl!=null){if(e.nl<50){alert('入力した寸法では外周が閉じません。寸法を見直してください');return}e.L=e.nl}}
+  const V=[{x:P0.x,y:P0.y}];E.forEach(e=>{const q=V.at(-1),n={x:q.x,y:q.y};n[e.k]+=e.s*e.L;V.push(n)});
+  plans.push({c,cl,V,old:[D.pts[c[0].a],...c.map(w=>D.pts[w.b])].map(q=>({x:q.x,y:q.y}))});
+ }
+ if(adj&&!confirm('入力した寸法では外周が閉じません(横 '+Math.round(miss[0])+' mm / 縦 '+Math.round(miss[1])+' mm の差)。\n寸法が未入力の辺(すべて入力済みなら最も長い辺)で調整して閉じますか?'))return;
+ save();
+ const pairs=[],own=new Set();
+ plans.forEach(({c,cl,V,old})=>{V.forEach((v,i)=>{pairs.push([old[i].x,v.x,'x'],[old[i].y,v.y,'y'])});
+  c.forEach((w,i)=>{own.add(D.pts[w.a]);own.add(D.pts[w.b])})});
+ const fmap=ax=>{const m=new Map();pairs.forEach(([o,n,a])=>{if(a!=ax)return;const key=Math.round(o*2)/2;if(!m.has(key))m.set(key,[]);m.get(key).push(n)});
+  const arr=[...m.entries()].map(([o,ns])=>({o,n:ns.reduce((a,b)=>a+b,0)/ns.length})).sort((a,b)=>a.o-b.o),mono=arr.every((e,i)=>i==0||e.n>=arr[i-1].n-.5);
+  return v=>{if(!arr.length)return v;if(v<=arr[0].o)return v+(arr[0].n-arr[0].o);const L=arr.length-1;if(v>=arr[L].o)return v+(arr[L].n-arr[L].o);
+   if(mono){for(let i=0;i<L;i++)if(v<=arr[i+1].o){const a=arr[i],b=arr[i+1];return a.n+(v-a.o)*(b.n-a.n)/((b.o-a.o)||1)}}
+   let b=arr[0];arr.forEach(e=>{if(Math.abs(e.o-v)<Math.abs(b.o-v))b=e});return v+(b.n-b.o)}};
+ const fx=fmap('x'),fy=fmap('y');
+ D.pts.forEach(q=>{if(own.has(q))return;q.x=fx(q.x);q.y=fy(q.y)});
+ D.areas.forEach(a=>{a.x=fx(a.x);a.y=fy(a.y);if(a.lx!=null){a.lx=fx(a.lx);a.ly=fy(a.ly)}});
+ plans.forEach(({c,cl,V})=>{c.forEach((w,i)=>{const A=D.pts[w.a],B=D.pts[w.b];A.x=V[i].x;A.y=V[i].y;B.x=cl&&i==c.length-1?V[0].x:V[i+1].x;B.y=cl&&i==c.length-1?V[0].y:V[i+1].y})});
+ os.forEach(w=>{if(w.pd){w.fix=1;delete w.pd}});
+ sel=null;commit();ui()}
 /* ---- 図面枠・図面情報・スケール ---- */
 let fdn=null,lpT=0,SNX=null;
 const tdy=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
@@ -971,7 +1012,7 @@ function ppSet(o,val){const k=o.ax,P=D.pts[o.p],Q=D.pts[o.q],hi=Q[k]>=P[k]?o.q:o
  if(!outer&&perp.length)slideSet(perp[0]).forEach(m=>{m.pt[k]+=d});else{const cut=D.pts[hi][k];D.pts.forEach(q=>{if(q[k]>=cut-.5)q[k]+=d})}
  opsFix(snap);linkFix(LK)}
 async function dimEdit(o){const g=dimG(o);if(!g)return;if(o.t=='pp'&&!g.w){const f=await ask('寸法線(交点間)',[{l:'寸法値(mm) ※右/下側の壁を動かして合わせます',v:Math.round(g.L)}],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}else if(f&&+f[0]>0){save();ppSet(o,+f[0])}commit();return}
- if(o.t=='pp'&&g.w){const f=await ask('寸法線',[{l:'寸法値(mm)',v:Math.round(g.L)}],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}else if(f&&+f[0]>0){save();if(Math.round(+f[0])!=Math.round(g.L))setLen(g.w,+f[0]);g.w.fix=1}}else{const f=await ask('寸法線',[],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}}commit()}
+ if(o.t=='pp'&&g.w){const ou_=g.w.kind=='outer',f=await ask(ou_?'寸法線(外周壁 ※実寸は「外周壁生成」で反映)':'寸法線',[{l:'寸法値(mm)',v:Math.round((ou_&&g.w.pd)||g.L)}],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}else if(f&&+f[0]>0){save();if(ou_){if(Math.round(+f[0])==Math.round(g.L))delete g.w.pd;else g.w.pd=Math.round(+f[0])}else{if(Math.round(+f[0])!=Math.round(g.L))setLen(g.w,+f[0]);g.w.fix=1}}}else{const f=await ask('寸法線',[],1);if(f=='del'){save();D.dims=D.dims.filter(x=>x!=o);sel=null}}commit()}
 function batchDel(){const n=D.dims.filter(x=>x.b).length;if(!n){alert('一括寸法で作成した寸法はありません');return}if(!confirm('一括寸法 '+n+'本を全て削除しますか?'))return;save();D.dims=D.dims.filter(x=>!x.b);sel=null;commit()}
 /* ---- 図形挿入中の図形選択(右クリック / iPad長押し) ---- */
 function shapePick(p,th){
@@ -1183,7 +1224,7 @@ function ui(){if(mode=='plan'&&tool!='eq'&&shp&&shp.startsWith('sym:'))shp=null;
  const gst=grp(t,'現場');mk(gst,'🏗',siteLabel(),siteM);
   {const cs=SITES.list[SITES.cur];if(cs){const F=FL(cs),gf=grp(t,'階');F.slice(0,6).forEach((fl,i)=>{const b=mk(gf,'🏢',fl.n.length>5?fl.n.slice(0,5)+'…':fl.n,()=>floorSwitch(i));if(i==cs.fi)b.classList.add('on')});if(F.length>6)mk(gf,'…','他'+(F.length-6),floorM);mk(gf,'＋','階追加',floorAdd);mk(gf,'⚙','階の管理',floorM)}}
  (mode=='rcp'?TGR:TG).forEach(([name,items])=>{const g=grp(t,name);items.forEach(([k,ic,lb])=>{const b=mk(g,ic,lb,()=>{tool=k;palCat=null;measDown=false;sel=null;chain=null;hov=null;mp1=null;mz=null;dm=null;pdrag=null;ui();render()});if(tool==k)b.classList.add('on')})});
- const gd=grp(t,'図面・寸法');mk(gd,'ℹ','図面情報',infoM);if(mode=='plan'){mk(gd,'📐','外周一括寸法',batchDim);mk(gd,'🗑','一括寸法削除',batchDel)}
+ const gd=grp(t,'図面・寸法');mk(gd,'ℹ','図面情報',infoM);if(mode=='plan'){mk(gd,'📐','外周一括寸法',batchDim);mk(gd,'🧱','外周壁生成',outerRebuild);mk(gd,'🗑','一括寸法削除',batchDel)}
  const gs=grp(t,'選択図形');mk(gs,'⊕','拡大',()=>scSel(1.1));mk(gs,'⊖','縮小',()=>scSel(1/1.1));
  {const ci=document.createElement('input');ci.type='color';ci.id='colin';ci.title='選択図形の色';ci.style.cssText='width:34px;height:34px;padding:0;border:1px solid #9ca3af;border-radius:6px';
   ci.onclick=()=>{if(sel&&sel.o)save()};ci.oninput=()=>{if(sel&&sel.o){sel.o.col=ci.value;render()}};ci.onchange=()=>commit();gs.appendChild(ci);
